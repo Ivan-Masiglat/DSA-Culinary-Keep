@@ -1,19 +1,18 @@
-import model.Recipe;
-import util.DynamicRowHelper;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
+import java.io.File;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import model.Recipe;
+import util.DynamicRowHelper;
 
 public class UI extends JFrame {
 
     // COLOR PALETTE
-    private static final Color COLOR_BG_TOP = new Color(250, 245, 238);
     private static final Color COLOR_PRIMARY = new Color(212, 100, 48);        // Warm Terracotta
     private static final Color COLOR_TEXT_DARK = new Color(38, 33, 29);
     private static final Color COLOR_TEXT_MUTED = new Color(135, 125, 116);
@@ -52,10 +51,36 @@ public class UI extends JFrame {
 
         seedInitialRecipes();
 
-        JPanel phoneScreen = new JPanel(new BorderLayout());
-        phoneScreen.setBackground(COLOR_BG_TOP);
+        // ROOT PANEL: Paints recipebg.png at the VERY BACK across the entire screen
+        JPanel phoneScreen = new JPanel(new BorderLayout()) {
+            private Image bgImage;
 
-        phoneScreen.add(createMobileStatusBar(), BorderLayout.NORTH);
+            {
+                File imgFile = new File("assets/recipebg.png");
+                if (imgFile.exists()) {
+                    bgImage = new ImageIcon("assets/recipebg.png").getImage();
+                } else {
+                    java.net.URL url = getClass().getResource("/assets/recipebg.png");
+                    if (url != null) {
+                        bgImage = new ImageIcon(url).getImage();
+                    }
+                }
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (bgImage != null) {
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g2d.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
+                    g2d.dispose();
+                } else {
+                    g.setColor(new Color(250, 245, 238));
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
+        };
 
         screenCardLayout = new CardLayout();
         mobileScreenContainer = new JPanel(screenCardLayout);
@@ -70,30 +95,20 @@ public class UI extends JFrame {
         add(phoneScreen);
     }
 
-    private JPanel createMobileStatusBar() {
-        JPanel bar = new JPanel(new BorderLayout());
-        bar.setOpaque(false);
-        bar.setPreferredSize(new Dimension(420, 28));
-        bar.setBorder(new EmptyBorder(6, 16, 0, 16));
-
-        JLabel timeLbl = new JLabel("9:41");
-        timeLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
-        timeLbl.setForeground(COLOR_TEXT_DARK);
-
-        JLabel iconsLbl = new JLabel("📶 🔋");
-        iconsLbl.setFont(new Font("SansSerif", Font.PLAIN, 10));
-
-        bar.add(timeLbl, BorderLayout.WEST);
-        bar.add(iconsLbl, BorderLayout.EAST);
-
-        return bar;
-    }
-
     private JPanel createMobileBottomNavBar() {
-        JPanel navBar = new JPanel(new GridLayout(1, 3));
-        navBar.setBackground(Color.WHITE);
+        JPanel navBar = new JPanel(new GridLayout(1, 3)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(new Color(255, 255, 255, 240));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(COLOR_BORDER);
+                g2.drawLine(0, 0, getWidth(), 0);
+                g2.dispose();
+            }
+        };
+        navBar.setOpaque(false);
         navBar.setPreferredSize(new Dimension(420, 56));
-        navBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDER));
 
         JButton btnCollection = createNavButton("📖", "Collection");
         JButton btnAdd = createNavButton("➕", "Add Recipe");
@@ -134,20 +149,44 @@ public class UI extends JFrame {
     private JPanel createMobileCollectionScreen() {
         JPanel screen = new JPanel(new BorderLayout());
         screen.setOpaque(false);
-        screen.setBorder(new EmptyBorder(12, 14, 0, 14));
 
         JPanel topBox = new JPanel();
         topBox.setLayout(new BoxLayout(topBox, BoxLayout.Y_AXIS));
         topBox.setOpaque(false);
 
-        JLabel subHeader = new JLabel("CULINARY KEEP");
-        subHeader.setFont(new Font("SansSerif", Font.BOLD, 10));
-        subHeader.setForeground(COLOR_PRIMARY);
+        JLabel logoLabel = new JLabel();
+        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel mainHeader = new JLabel("Your Recipes");
-        mainHeader.setFont(new Font("Serif", Font.BOLD, 26));
+        File logoFile = new File("assets/logohome.png");
+        ImageIcon rawLogo = null;
+        if (logoFile.exists()) {
+            rawLogo = new ImageIcon("assets/logohome.png");
+        } else {
+            java.net.URL logoUrl = getClass().getResource("/assets/logohome.png");
+            if (logoUrl != null) rawLogo = new ImageIcon(logoUrl);
+        }
+
+        if (rawLogo != null && rawLogo.getIconWidth() > 0) {
+            int targetW = 220; 
+            int targetH = (int) ((double) rawLogo.getIconHeight() / rawLogo.getIconWidth() * targetW);
+            Image scaledLogo = rawLogo.getImage().getScaledInstance(targetW, targetH, Image.SCALE_SMOOTH);
+            logoLabel.setIcon(new ImageIcon(scaledLogo));
+        } else {
+            logoLabel.setText("<html><center><font color='#D46430'><b>CULINARY KEEP</b></font><br><font size='5'><b>Your Recipes</b></font></center></html>");
+        }
+
+        topBox.add(Box.createVerticalStrut(20));
+        topBox.add(logoLabel);
+        topBox.add(Box.createVerticalStrut(20));
+
+        JPanel controlsPanel = new JPanel();
+        controlsPanel.setLayout(new BoxLayout(controlsPanel, BoxLayout.Y_AXIS));
+        controlsPanel.setOpaque(false);
+        controlsPanel.setBorder(new EmptyBorder(0, 14, 8, 14));
 
         JTextField searchBar = DynamicRowHelper.createStyledTextField("🔍 Search...", COLOR_BORDER);
+        searchBar.setMaximumSize(new Dimension(380, 40));
+
         searchBar.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -185,19 +224,16 @@ public class UI extends JFrame {
         pillsScroll.setBorder(null);
         pillsScroll.setOpaque(false);
         pillsScroll.getViewport().setOpaque(false);
-        pillsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        pillsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         pillsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        pillsScroll.setPreferredSize(new Dimension(380, 50));
+        pillsScroll.setPreferredSize(new Dimension(380, 40));
         pillsScroll.getHorizontalScrollBar().setUnitIncrement(10);
 
-        topBox.add(subHeader);
-        topBox.add(mainHeader);
-        topBox.add(Box.createVerticalStrut(10));
-        topBox.add(searchBar);
-        topBox.add(Box.createVerticalStrut(10));
-        topBox.add(pillsScroll);
-        topBox.add(Box.createVerticalStrut(10));
+        controlsPanel.add(searchBar);
+        controlsPanel.add(Box.createVerticalStrut(10));
+        controlsPanel.add(pillsScroll);
 
+        topBox.add(controlsPanel);
         screen.add(topBox, BorderLayout.NORTH);
 
         collectionCardFeed = new JPanel();
@@ -205,10 +241,13 @@ public class UI extends JFrame {
         collectionCardFeed.setOpaque(false);
 
         JScrollPane feedScroller = new JScrollPane(collectionCardFeed);
-        feedScroller.setBorder(null);
+        feedScroller.setBorder(new EmptyBorder(10, 14, 0, 14));
         feedScroller.setOpaque(false);
         feedScroller.getViewport().setOpaque(false);
         feedScroller.getVerticalScrollBar().setUnitIncrement(12);
+        
+        feedScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        feedScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         screen.add(feedScroller, BorderLayout.CENTER);
 
@@ -221,7 +260,7 @@ public class UI extends JFrame {
             pill.setBackground(COLOR_PRIMARY);
             pill.setForeground(Color.WHITE);
         } else {
-            pill.setBackground(new Color(238, 230, 220));
+            pill.setBackground(new Color(255, 255, 255, 220));
             pill.setForeground(COLOR_TEXT_DARK);
         }
     }
@@ -314,25 +353,51 @@ public class UI extends JFrame {
     }
 
     private JScrollPane createMobileAddRecipeScreen() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
-        panel.setBorder(new EmptyBorder(12, 16, 20, 16));
+        // Outer wrapper transparent panel
+        JPanel outer = new JPanel();
+        outer.setLayout(new BoxLayout(outer, BoxLayout.Y_AXIS));
+        outer.setOpaque(false);
+        outer.setBorder(new EmptyBorder(20, 16, 20, 16));
+
+        // Form Container Card with a solid white rounded background
+        JPanel card = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(COLOR_CARD_BG);
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 16, 16));
+                g2.setColor(COLOR_BORDER);
+                g2.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 16, 16));
+                g2.dispose();
+            }
+        };
+
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(20, 18, 20, 18));
 
         JLabel header = new JLabel("Add New Recipe");
-        header.setFont(new Font("Serif", Font.BOLD, 24));
+        header.setFont(new Font("Serif", Font.BOLD, 22));
+        header.setForeground(COLOR_TEXT_DARK);
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         nameField = DynamicRowHelper.createStyledTextField("e.g. Saffron Risotto", COLOR_BORDER);
+        nameField.setMaximumSize(new Dimension(350, 36));
+
         imageUrlField = DynamicRowHelper.createStyledTextField("e.g. Image URL (Optional)", COLOR_BORDER);
+        imageUrlField.setMaximumSize(new Dimension(350, 36));
 
         categoryBox = new JComboBox<>(new String[]{"Breakfast", "Dinner", "Dessert", "Salads", "Soups & Stews"});
         styleComponent(categoryBox);
+        categoryBox.setMaximumSize(new Dimension(350, 36));
 
         timeSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 300, 5));
         unitBox = new JComboBox<>(new String[]{"mins", "hours"});
 
         JPanel timeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         timeRow.setOpaque(false);
+        timeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         timeRow.add(timeSpinner);
         timeRow.add(unitBox);
 
@@ -342,6 +407,7 @@ public class UI extends JFrame {
         DynamicRowHelper.addDynamicRow(ingredientsContainer, ingredientFields, "e.g. 2 cups rice", COLOR_BORDER);
 
         JButton addIngBtn = createSecondaryButton("+ Ingredient");
+        addIngBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         addIngBtn.addActionListener(e -> DynamicRowHelper.addDynamicRow(ingredientsContainer, ingredientFields, "e.g. Next item...", COLOR_BORDER));
 
         instructionsContainer = new JPanel();
@@ -350,6 +416,7 @@ public class UI extends JFrame {
         DynamicRowHelper.addDynamicRow(instructionsContainer, instructionFields, "e.g. Heat butter on pan...", COLOR_BORDER);
 
         JButton addStepBtn = createSecondaryButton("+ Step");
+        addStepBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         addStepBtn.addActionListener(e -> DynamicRowHelper.addDynamicRow(instructionsContainer, instructionFields, "e.g. Next step...", COLOR_BORDER));
 
         JButton saveBtn = new JButton("Save Recipe");
@@ -365,36 +432,49 @@ public class UI extends JFrame {
         JButton clearBtn = createSecondaryButton("Clear");
         clearBtn.addActionListener(e -> clearForm());
 
-        panel.add(header);
-        panel.add(Box.createVerticalStrut(12));
-        panel.add(createFieldLabel("NAME"));
-        panel.add(nameField);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(createFieldLabel("CATEGORY"));
-        panel.add(categoryBox);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(createFieldLabel("PREP TIME"));
-        panel.add(timeRow);
-        panel.add(Box.createVerticalStrut(12));
-        panel.add(createFieldLabel("INGREDIENTS"));
-        panel.add(ingredientsContainer);
-        panel.add(addIngBtn);
-        panel.add(Box.createVerticalStrut(12));
-        panel.add(createFieldLabel("INSTRUCTIONS"));
-        panel.add(instructionsContainer);
-        panel.add(addStepBtn);
-        panel.add(Box.createVerticalStrut(16));
-        
         JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttonRow.setOpaque(false);
+        buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         buttonRow.add(saveBtn);
         buttonRow.add(clearBtn);
-        panel.add(buttonRow);
 
-        JScrollPane scroller = new JScrollPane(panel);
+        card.add(header);
+        card.add(Box.createVerticalStrut(14));
+        card.add(createFieldLabel("NAME"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(nameField);
+        card.add(Box.createVerticalStrut(10));
+        card.add(createFieldLabel("CATEGORY"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(categoryBox);
+        card.add(Box.createVerticalStrut(10));
+        card.add(createFieldLabel("PREP TIME"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(timeRow);
+        card.add(Box.createVerticalStrut(12));
+        card.add(createFieldLabel("INGREDIENTS"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(ingredientsContainer);
+        card.add(Box.createVerticalStrut(4));
+        card.add(addIngBtn);
+        card.add(Box.createVerticalStrut(12));
+        card.add(createFieldLabel("INSTRUCTIONS"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(instructionsContainer);
+        card.add(Box.createVerticalStrut(4));
+        card.add(addStepBtn);
+        card.add(Box.createVerticalStrut(18));
+        card.add(buttonRow);
+
+        outer.add(card);
+
+        JScrollPane scroller = new JScrollPane(outer);
         scroller.setBorder(null);
         scroller.setOpaque(false);
         scroller.getViewport().setOpaque(false);
+        scroller.getVerticalScrollBar().setUnitIncrement(12);
+        scroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        scroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         return scroller;
     }
 
@@ -405,7 +485,7 @@ public class UI extends JFrame {
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(COLOR_BG_TOP);
+        panel.setBackground(new Color(250, 245, 238));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
         JLabel title = new JLabel("<html><h3>" + recipe.getName() + "</h3></html>");
@@ -543,6 +623,7 @@ public class UI extends JFrame {
         JLabel l = new JLabel(text);
         l.setFont(new Font("SansSerif", Font.BOLD, 10));
         l.setForeground(COLOR_PRIMARY);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
 
@@ -553,6 +634,7 @@ public class UI extends JFrame {
                 BorderFactory.createLineBorder(COLOR_BORDER, 1),
                 new EmptyBorder(6, 10, 6, 10)
         ));
+        comp.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
 
     private JButton createSecondaryButton(String text) {
