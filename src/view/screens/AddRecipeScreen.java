@@ -1,19 +1,16 @@
 package view.screens;
-
-import model.Recipe;
-import util.DynamicRowHelper;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-
 import config.AppTheme;
-
+import database.DatabaseManager;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import model.Recipe;
+import util.DynamicRowHelper;
 
 public class AddRecipeScreen extends JScrollPane {
 
@@ -100,11 +97,37 @@ public class AddRecipeScreen extends JScrollPane {
         saveBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         saveBtn.addActionListener(e -> {
             Recipe newRecipe = buildRecipeFromForm();
-            if (newRecipe != null) {
-                onSaveCallback.accept(newRecipe);
-                clearForm();
+
+            if (newRecipe == null) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Please enter a recipe name.",
+                    "Missing Recipe Name",
+                    JOptionPane.WARNING_MESSAGE
+                    );
+                return;
             }
-        });
+    }
+
+    if (DatabaseManager.saveRecipe(newRecipe)) {
+        onSaveCallback.accept(newRecipe);
+        clearForm();
+
+        JOptionPane.showMessageDialog(
+            this,
+            "Recipe saved successfully!",
+            "Success",
+            JOptionPane.INFORMATION_MESSAGE
+        );
+    } else {
+        JOptionPane.showMessageDialog(
+            this,
+            "Failed to save recipe. Please check the database.",
+            "Database Error",
+            JOptionPane.ERROR_MESSAGE
+        );
+    }
+});
 
         JButton clearBtn = createSecondaryButton("Clear");
         clearBtn.addActionListener(e -> clearForm());
