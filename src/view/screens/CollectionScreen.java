@@ -2,8 +2,12 @@ package view.screens;
 
 import config.AppTheme;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,9 +24,13 @@ public class CollectionScreen extends JPanel {
     
     private String currentCategoryFilter = "All";
     private boolean showFavoritesOnly = false;
+    private boolean showMostViewedOnly = false;
     private String currentSearchQuery = "";
 
+    private static final String SEARCH_PLACEHOLDER = "Search recipes...";
+
     private JPanel collectionCardFeed;
+    private JTextField searchBar;
 
     public CollectionScreen(List<Recipe> recipes, RecipeCard.CardActionListener listener) {
         this.recipes = recipes;
@@ -45,12 +53,40 @@ public class CollectionScreen extends JPanel {
         controlsPanel.setOpaque(false);
         controlsPanel.setBorder(new EmptyBorder(0, 14, 8, 14));
 
-        JTextField searchBar = DynamicRowHelper.createStyledTextField("🔍 Search...", AppTheme.COLOR_BORDER);
+        searchBar = DynamicRowHelper.createStyledTextField(SEARCH_PLACEHOLDER, AppTheme.COLOR_BORDER);
         searchBar.setMaximumSize(new Dimension(380, 40));
+        searchBar.setText(SEARCH_PLACEHOLDER);
+        searchBar.setForeground(Color.GRAY);
+
+        searchBar.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (searchBar.getText().equals(SEARCH_PLACEHOLDER)) {
+                    searchBar.setText("");
+                    searchBar.setForeground(AppTheme.COLOR_TEXT_DARK);
+                }
+            }
+
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (searchBar.getText().trim().isEmpty()) {
+                    searchBar.setText(SEARCH_PLACEHOLDER);
+                    searchBar.setForeground(Color.GRAY);
+                    currentSearchQuery = "";
+                    refreshGrid();
+                }
+            }
+        });
+
         searchBar.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                currentSearchQuery = searchBar.getText().replace("🔍 Search...", "").trim().toLowerCase();
+                String text = searchBar.getText().trim();
+                if (text.equals(SEARCH_PLACEHOLDER) || text.isEmpty()) {
+                    currentSearchQuery = "";
+                } else {
+                    currentSearchQuery = text.toLowerCase();
+                }
                 refreshGrid();
             }
         });
@@ -64,12 +100,15 @@ public class CollectionScreen extends JPanel {
         topBox.add(controlsPanel);
         add(topBox, BorderLayout.NORTH);
 
-        collectionCardFeed = new JPanel();
-        collectionCardFeed.setLayout(new BoxLayout(collectionCardFeed, BoxLayout.Y_AXIS));
+        collectionCardFeed = new JPanel(new GridLayout(0, 2, 12, 12));
         collectionCardFeed.setOpaque(false);
 
-        JScrollPane feedScroller = new JScrollPane(collectionCardFeed);
-        feedScroller.setBorder(new EmptyBorder(10, 14, 0, 14));
+        JPanel gridWrapper = new JPanel(new BorderLayout());
+        gridWrapper.setOpaque(false);
+        gridWrapper.add(collectionCardFeed, BorderLayout.NORTH);
+
+        JScrollPane feedScroller = new JScrollPane(gridWrapper);
+        feedScroller.setBorder(new EmptyBorder(10, 14, 10, 14));
         feedScroller.setOpaque(false);
         feedScroller.getViewport().setOpaque(false);
         feedScroller.getVerticalScrollBar().setUnitIncrement(12);
@@ -80,8 +119,31 @@ public class CollectionScreen extends JPanel {
         refreshGrid();
     }
 
+    public void setSearchQuery(String query) {
+        if (query != null && !query.trim().isEmpty()) {
+            this.currentSearchQuery = query.trim().toLowerCase();
+            if (searchBar != null) {
+                searchBar.setText(query.trim());
+                searchBar.setForeground(AppTheme.COLOR_TEXT_DARK);
+            }
+        } else {
+            this.currentSearchQuery = "";
+            if (searchBar != null) {
+                searchBar.setText(SEARCH_PLACEHOLDER);
+                searchBar.setForeground(Color.GRAY);
+            }
+        }
+    }
+
     public void setShowFavoritesOnly(boolean showFavoritesOnly) {
         this.showFavoritesOnly = showFavoritesOnly;
+        this.showMostViewedOnly = false;
+        refreshGrid();
+    }
+
+    public void setShowMostViewedOnly(boolean showMostViewedOnly) {
+        this.showMostViewedOnly = showMostViewedOnly;
+        this.showFavoritesOnly = false;
         refreshGrid();
     }
 
@@ -97,7 +159,12 @@ public class CollectionScreen extends JPanel {
 
         for (Recipe recipe : filtered) {
             collectionCardFeed.add(new RecipeCard(recipe, cardActionListener));
-            collectionCardFeed.add(Box.createVerticalStrut(10));
+        }
+
+        if (filtered.size() % 2 != 0) {
+            JPanel dummy = new JPanel();
+            dummy.setOpaque(false);
+            collectionCardFeed.add(dummy);
         }
 
         collectionCardFeed.revalidate();
@@ -129,10 +196,10 @@ public class CollectionScreen extends JPanel {
     }
 
     private JScrollPane createPillsPanel() {
-        JPanel pillsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel pillsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         pillsPanel.setOpaque(false);
 
-        String[] tags = {"All", "Breakfast", "Dinner", "Dessert", "Salads", "Soups & Stews"};
+        String[] tags = {"All", "Breakfast", "Lunch", "Dinner", "Dessert", "Salads", "Soups & Stews"};
         for (String tag : tags) {
             JButton pill = new JButton(tag);
             pill.setFont(AppTheme.FONT_BODY_SMALL);
@@ -142,6 +209,7 @@ public class CollectionScreen extends JPanel {
 
             pill.addActionListener(e -> {
                 showFavoritesOnly = false;
+                showMostViewedOnly = false;
                 currentCategoryFilter = tag;
                 for (Component c : pillsPanel.getComponents()) {
                     if (c instanceof JButton) {
@@ -158,10 +226,51 @@ public class CollectionScreen extends JPanel {
         pillsScroll.setBorder(null);
         pillsScroll.setOpaque(false);
         pillsScroll.getViewport().setOpaque(false);
-        pillsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        pillsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         pillsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        pillsScroll.setPreferredSize(new Dimension(380, 40));
-        pillsScroll.getHorizontalScrollBar().setUnitIncrement(10);
+        pillsScroll.setPreferredSize(new Dimension(380, 36));
+        pillsScroll.getHorizontalScrollBar().setUnitIncrement(16);
+
+        pillsScroll.getHorizontalScrollBar().setUI(new InvisibleScrollBarUI());
+        pillsScroll.getHorizontalScrollBar().setPreferredSize(new Dimension(0, 0));
+
+        pillsScroll.addMouseWheelListener(e -> {
+            JScrollBar horizontal = pillsScroll.getHorizontalScrollBar();
+            int amount = e.getWheelRotation() * horizontal.getUnitIncrement();
+            horizontal.setValue(horizontal.getValue() + amount);
+        });
+
+        MouseAdapter dragAdapter = new MouseAdapter() {
+            private Point origin;
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                origin = e.getPoint();
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (origin != null) {
+                    JViewport viewport = pillsScroll.getViewport();
+                    Point viewPosition = viewport.getViewPosition();
+                    int deltaX = origin.x - e.getX();
+                    int newX = viewPosition.x + deltaX;
+
+                    int maxX = pillsPanel.getWidth() - viewport.getWidth();
+                    if (maxX < 0) maxX = 0;
+
+                    if (newX < 0) newX = 0;
+                    if (newX > maxX) newX = maxX;
+
+                    viewport.setViewPosition(new Point(newX, viewPosition.y));
+                }
+            }
+        };
+
+        pillsPanel.addMouseListener(dragAdapter);
+        pillsPanel.addMouseMotionListener(dragAdapter);
+
         return pillsScroll;
     }
 
@@ -173,5 +282,37 @@ public class CollectionScreen extends JPanel {
             pill.setBackground(new Color(255, 255, 255, 220));
             pill.setForeground(AppTheme.COLOR_TEXT_DARK);
         }
+    }
+
+    private static class InvisibleScrollBarUI extends javax.swing.plaf.basic.BasicScrollBarUI {
+        @Override
+        protected void configureScrollBarColors() {
+            this.thumbColor = new Color(0, 0, 0, 0);
+            this.trackColor = new Color(0, 0, 0, 0);
+        }
+
+        @Override
+        protected JButton createDecreaseButton(int orientation) {
+            return createZeroButton();
+        }
+
+        @Override
+        protected JButton createIncreaseButton(int orientation) {
+            return createZeroButton();
+        }
+
+        private JButton createZeroButton() {
+            JButton btn = new JButton();
+            btn.setPreferredSize(new Dimension(0, 0));
+            btn.setMinimumSize(new Dimension(0, 0));
+            btn.setMaximumSize(new Dimension(0, 0));
+            return btn;
+        }
+
+        @Override
+        protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {}
+
+        @Override
+        protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {}
     }
 }

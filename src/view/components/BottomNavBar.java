@@ -1,53 +1,96 @@
 package view.components;
 
-import config.AppTheme;
 import java.awt.*;
+import java.io.File;
 import javax.swing.*;
 
 public class BottomNavBar extends JPanel {
 
     public interface NavListener {
-        void onCollectionClicked();
-        void onAddClicked();
+        void onHomeClicked();
         void onFavoritesClicked();
+        void onRecipesClicked();
+        void onAddClicked();
+        void onMostViewedClicked();
     }
 
     public BottomNavBar(NavListener listener) {
-        setLayout(new GridLayout(1, 3));
+        setLayout(new GridLayout(1, 5, 0, 0));
         setOpaque(false);
-        setPreferredSize(new Dimension(420, 56));
+        setPreferredSize(new Dimension(420, 64));
 
-        JButton btnCollection = createNavButton("📖", "Collection");
-        JButton btnAdd = createNavButton("➕", "Add Recipe");
-        JButton btnFavs = createNavButton("♥", "Favorites");
+        JButton btnHome = createNavButton("assets/icon_home.png", "Home");
+        JButton btnFavs = createNavButton("assets/icon_favorites.png", "Favs");
+        JButton btnRecipes = createNavButton("assets/icon_recipes.png", "Recipes");
+        JButton btnAdd = createNavButton("assets/icon_add.png", "Add");
+        JButton btnMostViewed = createNavButton("assets/icon_most_viewed.png", "Views");
 
-        btnCollection.addActionListener(e -> listener.onCollectionClicked());
-        btnAdd.addActionListener(e -> listener.onAddClicked());
+        btnHome.addActionListener(e -> listener.onHomeClicked());
         btnFavs.addActionListener(e -> listener.onFavoritesClicked());
+        btnRecipes.addActionListener(e -> listener.onRecipesClicked());
+        btnAdd.addActionListener(e -> listener.onAddClicked());
+        btnMostViewed.addActionListener(e -> listener.onMostViewedClicked());
 
-        add(btnCollection);
-        add(btnAdd);
+        add(btnHome);
         add(btnFavs);
+        add(btnRecipes);
+        add(btnAdd);
+        add(btnMostViewed);
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setColor(new Color(255, 255, 255, 240));
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        g2.setColor(AppTheme.COLOR_BORDER);
-        g2.drawLine(0, 0, getWidth(), 0);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Yellow background bar
+        g2.setColor(new Color(254, 203, 22));
+        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
         g2.dispose();
     }
 
-    private JButton createNavButton(String icon, String label) {
-        JButton btn = new JButton("<html><center>" + icon + "<br><font size='2'>" + label + "</font></center></html>");
-        btn.setFont(AppTheme.FONT_BODY);
-        btn.setForeground(AppTheme.COLOR_TEXT_DARK);
+    private JButton createNavButton(String assetPath, String fallbackText) {
+        JButton btn = new JButton();
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
-        btn.setBorder(null);
+        btn.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        ImageIcon icon = loadScaledIcon(assetPath, 28, 28);
+        if (icon != null) {
+            btn.setIcon(icon);
+        } else {
+            btn.setText(fallbackText);
+            btn.setFont(new Font("SansSerif", Font.BOLD, 10));
+            btn.setForeground(new Color(220, 80, 20));
+        }
+
         return btn;
+    }
+
+    private ImageIcon loadScaledIcon(String path, int targetWidth, int targetHeight) {
+        if (path == null || path.trim().isEmpty()) return null;
+
+        try {
+            File file = new File(path);
+            Image img = null;
+
+            if (file.exists()) {
+                img = new ImageIcon(path).getImage();
+            } else {
+                java.net.URL imgUrl = getClass().getResource("/" + path);
+                if (imgUrl != null) {
+                    img = new ImageIcon(imgUrl).getImage();
+                }
+            }
+
+            if (img != null && img.getWidth(null) > 0) {
+                Image resized = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+                return new ImageIcon(resized);
+            }
+        } catch (Exception e) {
+            // Fallback to plain text
+        }
+        return null;
     }
 }

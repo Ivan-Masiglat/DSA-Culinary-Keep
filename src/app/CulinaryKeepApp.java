@@ -1,4 +1,3 @@
-
 package app;
 
 import database.DatabaseManager;
@@ -14,6 +13,8 @@ import view.components.BottomNavBar;
 import view.components.RecipeCard;
 import view.screens.AddRecipeScreen;
 import view.screens.CollectionScreen;
+import view.screens.HomeScreen;
+import view.screens.MostViewedScreen;
 import view.screens.RecipeDetailScreen;
 
 public class CulinaryKeepApp extends JFrame {
@@ -23,8 +24,10 @@ public class CulinaryKeepApp extends JFrame {
     private CardLayout screenCardLayout;
     private JPanel mobileScreenContainer;
 
+    private HomeScreen homeScreen;
     private CollectionScreen collectionScreen;
     private AddRecipeScreen addRecipeScreen;
+    private MostViewedScreen mostViewedScreen;
 
     public CulinaryKeepApp() {
         setTitle("CulinaryKeep");
@@ -34,7 +37,6 @@ public class CulinaryKeepApp extends JFrame {
         setLocationRelativeTo(null);
 
         ImageIcon appIcon = new ImageIcon("assets/culinary_keep.jpg");
-
         if (appIcon.getIconWidth() > 0) {
             setIconImage(appIcon.getImage());
         }
@@ -42,14 +44,11 @@ public class CulinaryKeepApp extends JFrame {
         DatabaseManager.initializeDatabase();
 
         List<Recipe> savedRecipes = DatabaseManager.getAllRecipes();
-
         if (savedRecipes.isEmpty()) {
             List<Recipe> initialRecipes = SeedData.getInitialRecipes();
-
             for (Recipe recipe : initialRecipes) {
                 DatabaseManager.saveRecipe(recipe);
             }
-
             savedRecipes = DatabaseManager.getAllRecipes();
         }
 
@@ -61,107 +60,106 @@ public class CulinaryKeepApp extends JFrame {
         mobileScreenContainer = new JPanel(screenCardLayout);
         mobileScreenContainer.setOpaque(false);
 
-        RecipeCard.CardActionListener cardListener =
-            new RecipeCard.CardActionListener() {
+        RecipeCard.CardActionListener cardListener = new RecipeCard.CardActionListener() {
+            @Override
+            public void onFavoriteToggle(Recipe recipe) {
+                recipe.setFavorite(!recipe.isFavorite());
+                if (collectionScreen != null) collectionScreen.refreshGrid();
+                if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
+            }
 
-                @Override
-                public void onFavoriteToggle(Recipe recipe) {
-                    recipe.setFavorite(!recipe.isFavorite());
-                    collectionScreen.refreshGrid();
-                }
+            @Override
+            public void onCardClick(Recipe recipe) {
+                recipe.incrementViews();
+                if (collectionScreen != null) collectionScreen.refreshGrid();
+                if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
 
-                @Override
-                public void onCardClick(Recipe recipe) {
-                    recipe.incrementViews();
-                    collectionScreen.refreshGrid();
+                RecipeDetailScreen detailScreen = new RecipeDetailScreen(recipe, () ->
+                    screenCardLayout.show(mobileScreenContainer, "COLLECTION")
+                );
 
-                    RecipeDetailScreen detailScreen =
-                        new RecipeDetailScreen(recipe, () ->
-                            screenCardLayout.show(
-                                mobileScreenContainer,
-                                "COLLECTION"
-                            )
-                        );
+                mobileScreenContainer.add(detailScreen, "DETAIL");
+                screenCardLayout.show(mobileScreenContainer, "DETAIL");
+            }
+        };
 
-                    mobileScreenContainer.add(detailScreen, "DETAIL");
-                    screenCardLayout.show(
-                        mobileScreenContainer,
-                        "DETAIL"
-                    );
-                }
-            };
-
+        // Initialize CollectionScreen first
         collectionScreen = new CollectionScreen(
             recipes,
             cardListener
         );
 
+        // Initialize HomeScreen and connect search query directly to collectionScreen
+        homeScreen = new HomeScreen(
+            query -> {
+                collectionScreen.setShowFavoritesOnly(false);
+                collectionScreen.setSearchQuery(query);
+                collectionScreen.refreshGrid();
+                screenCardLayout.show(mobileScreenContainer, "COLLECTION");
+            }
+        );
+
         addRecipeScreen = new AddRecipeScreen(newRecipe -> {
             recipes.add(0, newRecipe);
-
             collectionScreen.setShowFavoritesOnly(false);
+            collectionScreen.setSearchQuery("");
             collectionScreen.refreshGrid();
-
-            screenCardLayout.show(
-                mobileScreenContainer,
-                "COLLECTION"
-            );
+            if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
+            screenCardLayout.show(mobileScreenContainer, "COLLECTION");
         });
 
-        mobileScreenContainer.add(
-            collectionScreen,
-            "COLLECTION"
+        mostViewedScreen = new MostViewedScreen(
+            recipes,
+            cardListener,
+            () -> screenCardLayout.show(mobileScreenContainer, "COLLECTION")
         );
 
-        mobileScreenContainer.add(
-            addRecipeScreen,
-            "ADD"
-        );
+        // Register screens in CardLayout
+        mobileScreenContainer.add(homeScreen, "HOME");
+        mobileScreenContainer.add(collectionScreen, "COLLECTION");
+        mobileScreenContainer.add(addRecipeScreen, "ADD");
+        mobileScreenContainer.add(mostViewedScreen, "MOST_VIEWED");
 
+        screenCardLayout.show(mobileScreenContainer, "HOME");
+
+        // Bottom Nav Bar wiring
         BottomNavBar navBar = new BottomNavBar(
             new BottomNavBar.NavListener() {
-
                 @Override
-                public void onCollectionClicked() {
-                    collectionScreen.setShowFavoritesOnly(false);
-                    collectionScreen.refreshGrid();
-
-                    screenCardLayout.show(
-                        mobileScreenContainer,
-                        "COLLECTION"
-                    );
-                }
-
-                @Override
-                public void onAddClicked() {
-                    screenCardLayout.show(
-                        mobileScreenContainer,
-                        "ADD"
-                    );
+                public void onHomeClicked() {
+                    screenCardLayout.show(mobileScreenContainer, "HOME");
                 }
 
                 @Override
                 public void onFavoritesClicked() {
                     collectionScreen.setShowFavoritesOnly(true);
                     collectionScreen.refreshGrid();
+                    screenCardLayout.show(mobileScreenContainer, "COLLECTION");
+                }
 
-                    screenCardLayout.show(
-                        mobileScreenContainer,
-                        "COLLECTION"
-                    );
+                @Override
+                public void onRecipesClicked() {
+                    collectionScreen.setShowFavoritesOnly(false);
+                    collectionScreen.setSearchQuery("");
+                    collectionScreen.refreshGrid();
+                    screenCardLayout.show(mobileScreenContainer, "COLLECTION");
+                }
+
+                @Override
+                public void onAddClicked() {
+                    screenCardLayout.show(mobileScreenContainer, "ADD");
+                }
+
+                @Override
+                public void onMostViewedClicked() {
+                    mostViewedScreen.refreshMostViewed();
+                    screenCardLayout.show(mobileScreenContainer, "MOST_VIEWED");
                 }
             }
         );
 
-        phoneScreen.add(
-            mobileScreenContainer,
-            BorderLayout.CENTER
-        );
-
-        phoneScreen.add(
-            navBar,
-            BorderLayout.SOUTH
-        );
+        phoneScreen.add(mobileScreenContainer, BorderLayout.CENTER);
+        phoneScreen.add(navBar, BorderLayout.SOUTH);
 
         add(phoneScreen);
     }
