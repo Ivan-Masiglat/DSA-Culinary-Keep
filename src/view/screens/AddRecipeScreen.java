@@ -1,4 +1,5 @@
 package view.screens;
+
 import config.AppTheme;
 import database.DatabaseManager;
 import java.awt.*;
@@ -19,9 +20,10 @@ public class AddRecipeScreen extends JScrollPane {
     private JComboBox<String> categoryBox;
     private JSpinner timeSpinner;
     private JComboBox<String> unitBox;
-    
+
     private final List<JTextField> ingredientFields = new ArrayList<>();
     private final List<JTextField> instructionFields = new ArrayList<>();
+
     private JPanel ingredientsContainer;
     private JPanel instructionsContainer;
 
@@ -35,11 +37,21 @@ public class AddRecipeScreen extends JScrollPane {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+                );
+
                 g2.setColor(AppTheme.COLOR_CARD_BG);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 16, 16));
+                g2.fill(new RoundRectangle2D.Float(
+                    0, 0, getWidth(), getHeight(), 16, 16
+                ));
+
                 g2.setColor(AppTheme.COLOR_BORDER);
-                g2.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 16, 16));
+                g2.draw(new RoundRectangle2D.Float(
+                    0, 0, getWidth() - 1, getHeight() - 1, 16, 16
+                ));
+
                 g2.dispose();
             }
         };
@@ -53,48 +65,101 @@ public class AddRecipeScreen extends JScrollPane {
         header.setForeground(AppTheme.COLOR_TEXT_DARK);
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        nameField = DynamicRowHelper.createStyledTextField("e.g. Saffron Risotto", AppTheme.COLOR_BORDER);
+        nameField = DynamicRowHelper.createStyledTextField(
+            "e.g. Saffron Risotto",
+            AppTheme.COLOR_BORDER
+        );
         nameField.setMaximumSize(new Dimension(350, 36));
 
-        imageUrlField = DynamicRowHelper.createStyledTextField("e.g. Image URL (Optional)", AppTheme.COLOR_BORDER);
+        imageUrlField = DynamicRowHelper.createStyledTextField(
+            "e.g. Image URL (Optional)",
+            AppTheme.COLOR_BORDER
+        );
         imageUrlField.setMaximumSize(new Dimension(350, 36));
 
-        categoryBox = new JComboBox<>(new String[]{"Breakfast", "Dinner", "Dessert", "Salads", "Soups & Stews"});
+        categoryBox = new JComboBox<>(new String[]{
+            "Breakfast",
+            "Dinner",
+            "Dessert",
+            "Salads",
+            "Soups & Stews"
+        });
         styleComponent(categoryBox);
         categoryBox.setMaximumSize(new Dimension(350, 36));
 
-        timeSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 300, 5));
+        timeSpinner = new JSpinner(
+            new SpinnerNumberModel(30, 5, 300, 5)
+        );
         unitBox = new JComboBox<>(new String[]{"mins", "hours"});
 
-        JPanel timeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel timeRow = new JPanel(
+            new FlowLayout(FlowLayout.LEFT, 6, 0)
+        );
         timeRow.setOpaque(false);
         timeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         timeRow.add(timeSpinner);
         timeRow.add(unitBox);
 
         ingredientsContainer = new JPanel();
-        ingredientsContainer.setLayout(new BoxLayout(ingredientsContainer, BoxLayout.Y_AXIS));
+        ingredientsContainer.setLayout(
+            new BoxLayout(ingredientsContainer, BoxLayout.Y_AXIS)
+        );
         ingredientsContainer.setOpaque(false);
-        DynamicRowHelper.addDynamicRow(ingredientsContainer, ingredientFields, "e.g. 2 cups rice", AppTheme.COLOR_BORDER);
+
+        DynamicRowHelper.addDynamicRow(
+            ingredientsContainer,
+            ingredientFields,
+            "e.g. 2 cups rice",
+            AppTheme.COLOR_BORDER
+        );
 
         JButton addIngBtn = createSecondaryButton("+ Ingredient");
         addIngBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        addIngBtn.addActionListener(e -> DynamicRowHelper.addDynamicRow(ingredientsContainer, ingredientFields, "e.g. Next item...", AppTheme.COLOR_BORDER));
+        addIngBtn.addActionListener(e -> {
+            DynamicRowHelper.addDynamicRow(
+                ingredientsContainer,
+                ingredientFields,
+                "e.g. Next item...",
+                AppTheme.COLOR_BORDER
+            );
+            ingredientsContainer.revalidate();
+            ingredientsContainer.repaint();
+        });
 
         instructionsContainer = new JPanel();
-        instructionsContainer.setLayout(new BoxLayout(instructionsContainer, BoxLayout.Y_AXIS));
+        instructionsContainer.setLayout(
+            new BoxLayout(instructionsContainer, BoxLayout.Y_AXIS)
+        );
         instructionsContainer.setOpaque(false);
-        DynamicRowHelper.addDynamicRow(instructionsContainer, instructionFields, "e.g. Heat butter on pan...", AppTheme.COLOR_BORDER);
+
+        DynamicRowHelper.addDynamicRow(
+            instructionsContainer,
+            instructionFields,
+            "e.g. Heat butter on pan...",
+            AppTheme.COLOR_BORDER
+        );
 
         JButton addStepBtn = createSecondaryButton("+ Step");
         addStepBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        addStepBtn.addActionListener(e -> DynamicRowHelper.addDynamicRow(instructionsContainer, instructionFields, "e.g. Next step...", AppTheme.COLOR_BORDER));
+        addStepBtn.addActionListener(e -> {
+            DynamicRowHelper.addDynamicRow(
+                instructionsContainer,
+                instructionFields,
+                "e.g. Next step...",
+                AppTheme.COLOR_BORDER
+            );
+            instructionsContainer.revalidate();
+            instructionsContainer.repaint();
+        });
 
         JButton saveBtn = new JButton("Save Recipe");
         saveBtn.setBackground(AppTheme.COLOR_PRIMARY);
         saveBtn.setForeground(Color.WHITE);
         saveBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
-        saveBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        saveBtn.setCursor(
+            Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        );
+
         saveBtn.addActionListener(e -> {
             Recipe newRecipe = buildRecipeFromForm();
 
@@ -104,35 +169,36 @@ public class AddRecipeScreen extends JScrollPane {
                     "Please enter a recipe name.",
                     "Missing Recipe Name",
                     JOptionPane.WARNING_MESSAGE
-                    );
+                );
                 return;
             }
-    }
 
-    if (DatabaseManager.saveRecipe(newRecipe)) {
-        onSaveCallback.accept(newRecipe);
-        clearForm();
+            if (DatabaseManager.saveRecipe(newRecipe)) {
+                onSaveCallback.accept(newRecipe);
+                clearForm();
 
-        JOptionPane.showMessageDialog(
-            this,
-            "Recipe saved successfully!",
-            "Success",
-            JOptionPane.INFORMATION_MESSAGE
-        );
-    } else {
-        JOptionPane.showMessageDialog(
-            this,
-            "Failed to save recipe. Please check the database.",
-            "Database Error",
-            JOptionPane.ERROR_MESSAGE
-        );
-    }
-});
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Recipe saved successfully!",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+            } else {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Failed to save recipe. Please check the database.",
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+                );
+            }
+        });
 
         JButton clearBtn = createSecondaryButton("Clear");
         clearBtn.addActionListener(e -> clearForm());
 
-        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel buttonRow = new JPanel(
+            new FlowLayout(FlowLayout.LEFT, 8, 0)
+        );
         buttonRow.setOpaque(false);
         buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         buttonRow.add(saveBtn);
@@ -143,6 +209,10 @@ public class AddRecipeScreen extends JScrollPane {
         card.add(createFieldLabel("NAME"));
         card.add(Box.createVerticalStrut(4));
         card.add(nameField);
+        card.add(Box.createVerticalStrut(10));
+        card.add(createFieldLabel("IMAGE URL (OPTIONAL)"));
+        card.add(Box.createVerticalStrut(4));
+        card.add(imageUrlField);
         card.add(Box.createVerticalStrut(10));
         card.add(createFieldLabel("CATEGORY"));
         card.add(Box.createVerticalStrut(4));
@@ -173,68 +243,92 @@ public class AddRecipeScreen extends JScrollPane {
         setOpaque(false);
         getViewport().setOpaque(false);
         getVerticalScrollBar().setUnitIncrement(12);
-        setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        setVerticalScrollBarPolicy(
+            JScrollPane.VERTICAL_SCROLLBAR_NEVER
+        );
+        setHorizontalScrollBarPolicy(
+            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
     }
 
     private Recipe buildRecipeFromForm() {
         String name = nameField.getText().trim();
-        if (name.isEmpty() || name.startsWith("e.g.")) return null;
+
+        if (name.isEmpty() || name.startsWith("e.g.")) {
+            return null;
+        }
 
         List<String> ings = ingredientFields.stream()
-                .map(JTextField::getText)
-                .map(String::trim)
-                .filter(t -> !t.isEmpty() && !t.startsWith("e.g."))
-                .collect(Collectors.toList());
+            .map(JTextField::getText)
+            .map(String::trim)
+            .filter(t -> !t.isEmpty() && !t.startsWith("e.g."))
+            .collect(Collectors.toList());
 
         List<String> steps = instructionFields.stream()
-                .map(JTextField::getText)
-                .map(String::trim)
-                .filter(t -> !t.isEmpty() && !t.startsWith("e.g."))
-                .collect(Collectors.toList());
+            .map(JTextField::getText)
+            .map(String::trim)
+            .filter(t -> !t.isEmpty() && !t.startsWith("e.g."))
+            .collect(Collectors.toList());
 
         return new Recipe(
-                name,
-                (String) categoryBox.getSelectedItem(),
-                timeSpinner.getValue() + " " + unitBox.getSelectedItem(),
-                "",
-                ings,
-                steps
+            name,
+            (String) categoryBox.getSelectedItem(),
+            timeSpinner.getValue() + " " + unitBox.getSelectedItem(),
+            imageUrlField.getText().trim(),
+            ings,
+            steps
         );
     }
 
     public void clearForm() {
         nameField.setText("");
-        if (imageUrlField != null) imageUrlField.setText("");
+        imageUrlField.setText("");
         categoryBox.setSelectedIndex(0);
         timeSpinner.setValue(30);
+        unitBox.setSelectedIndex(0);
 
         ingredientsContainer.removeAll();
         ingredientFields.clear();
-        DynamicRowHelper.addDynamicRow(ingredientsContainer, ingredientFields, "e.g. 2 cups rice", AppTheme.COLOR_BORDER);
+
+        DynamicRowHelper.addDynamicRow(
+            ingredientsContainer,
+            ingredientFields,
+            "e.g. 2 cups rice",
+            AppTheme.COLOR_BORDER
+        );
 
         instructionsContainer.removeAll();
         instructionFields.clear();
-        DynamicRowHelper.addDynamicRow(instructionsContainer, instructionFields, "e.g. Heat butter on pan...", AppTheme.COLOR_BORDER);
+
+        DynamicRowHelper.addDynamicRow(
+            instructionsContainer,
+            instructionFields,
+            "e.g. Heat butter on pan...",
+            AppTheme.COLOR_BORDER
+        );
 
         ingredientsContainer.revalidate();
+        ingredientsContainer.repaint();
         instructionsContainer.revalidate();
+        instructionsContainer.repaint();
     }
 
     private JLabel createFieldLabel(String text) {
-        JLabel l = new JLabel(text);
-        l.setFont(AppTheme.FONT_LABEL_BOLD);
-        l.setForeground(AppTheme.COLOR_PRIMARY);
-        l.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return l;
+        JLabel label = new JLabel(text);
+        label.setFont(AppTheme.FONT_LABEL_BOLD);
+        label.setForeground(AppTheme.COLOR_PRIMARY);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
     }
 
     private void styleComponent(JComponent comp) {
         comp.setFont(AppTheme.FONT_BODY);
         comp.setBackground(Color.WHITE);
         comp.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(AppTheme.COLOR_BORDER, 1),
-                new EmptyBorder(6, 10, 6, 10)
+            BorderFactory.createLineBorder(
+                AppTheme.COLOR_BORDER, 1
+            ),
+            new EmptyBorder(6, 10, 6, 10)
         ));
         comp.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
