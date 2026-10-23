@@ -1,16 +1,13 @@
 package view.components;
 
-import model.Recipe;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-
 import config.AppTheme;
-
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import model.Recipe;
 
 public class RecipeCard extends JPanel {
 

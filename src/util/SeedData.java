@@ -1,10 +1,9 @@
 package util;
 
-import model.Recipe;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import model.Recipe;
 
 public class SeedData {
 

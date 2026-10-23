@@ -1,10 +1,8 @@
 package view.components;
 
-import javax.swing.*;
-
 import config.AppTheme;
-
 import java.awt.*;
+import javax.swing.*;
 
 public class BottomNavBar extends JPanel {
 

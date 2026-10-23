@@ -7,43 +7,45 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import model.Recipe;
 
 public class DatabaseManager {
 
-    private static final String URL = "jdbc:sqlite:database/culinary.db";
+    private static final String DB_URL = "jdbc:sqlite:database/culinary.db";
 
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL);
+        return DriverManager.getConnection(DB_URL);
     }
 
     public static void initializeDatabase() {
-        try {
-            Class.forName("org.sqlite.JDBC");
+        String sql = """
+            CREATE TABLE IF NOT EXISTS recipes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                recipe_name TEXT NOT NULL,
+                category TEXT,
+                prep_time TEXT,
+                image_url TEXT,
+                ingredients TEXT,
+                instructions TEXT
+            )
+            """;
 
-            try (Connection conn = getConnection();
-                 Statement stmt = conn.createStatement()) {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
 
-                stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS recipes (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "recipe_name TEXT NOT NULL, " +
-                    "ingredients TEXT, " +
-                    "instructions TEXT)"
-                );
+            stmt.execute(sql);
 
-                addColumnIfMissing(conn, "category", "TEXT");
-                addColumnIfMissing(conn, "prep_time", "TEXT");
-                addColumnIfMissing(conn, "image_url", "TEXT");
+            addColumnIfMissing(conn, "category", "TEXT");
+            addColumnIfMissing(conn, "prep_time", "TEXT");
+            addColumnIfMissing(conn, "image_url", "TEXT");
 
-                System.out.println("Successfully connected to culinary.db!");
-                System.out.println("Recipes table initialized successfully.");
-            }
+            System.out.println("Recipes table initialized successfully.");
 
-        } catch (ClassNotFoundException e) {
-            System.err.println("SQLite JDBC driver not found: " + e.getMessage());
         } catch (SQLException e) {
-            System.err.println("Database error: " + e.getMessage());
+            System.err.println("Database initialization failed: " + e.getMessage());
         }
     }
 
@@ -51,20 +53,20 @@ public class DatabaseManager {
             Connection conn, String columnName, String columnType)
             throws SQLException {
 
-        boolean exists = false;
+        boolean columnExists = false;
 
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("PRAGMA table_info(recipes)")) {
 
             while (rs.next()) {
                 if (columnName.equalsIgnoreCase(rs.getString("name"))) {
-                    exists = true;
+                    columnExists = true;
                     break;
                 }
             }
         }
 
-        if (!exists) {
+        if (!columnExists) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(
                     "ALTER TABLE recipes ADD COLUMN "
@@ -75,11 +77,11 @@ public class DatabaseManager {
     }
 
     public static boolean saveRecipe(Recipe recipe) {
-        initializeDatabase();
-
-        String sql = "INSERT INTO recipes " +
-                "(recipe_name, category, prep_time, image_url, ingredients, instructions) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = """
+            INSERT INTO recipes
+            (recipe_name, category, prep_time, image_url, ingredients, instructions)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """;
 
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -91,15 +93,60 @@ public class DatabaseManager {
             pstmt.setString(5, String.join("\n", recipe.getIngredients()));
             pstmt.setString(6, String.join("\n", recipe.getInstructions()));
 
-            return pstmt.executeUpdate() > 0;
+            int rowsInserted = pstmt.executeUpdate();
+
+            if (rowsInserted > 0) {
+                System.out.println("Recipe saved: " + recipe.getName());
+                return true;
+            }
 
         } catch (SQLException e) {
             System.err.println("Failed to save recipe: " + e.getMessage());
-            return false;
         }
+
+        return false;
     }
 
-    public static void main(String[] args) {
-        initializeDatabase();
+    public static List<Recipe> getAllRecipes() {
+        List<Recipe> recipes = new ArrayList<>();
+
+        String sql = "SELECT * FROM recipes ORDER BY id DESC";
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String ingredientsText = rs.getString("ingredients");
+                String instructionsText = rs.getString("instructions");
+
+                List<String> ingredients = ingredientsText == null
+                    || ingredientsText.isBlank()
+                    ? new ArrayList<>()
+                    : new ArrayList<>(Arrays.asList(ingredientsText.split("\n")));
+
+                List<String> instructions = instructionsText == null
+                    || instructionsText.isBlank()
+                    ? new ArrayList<>()
+                    : new ArrayList<>(Arrays.asList(instructionsText.split("\n")));
+
+                Recipe recipe = new Recipe(
+                    rs.getString("recipe_name"),
+                    rs.getString("category"),
+                    rs.getString("prep_time"),
+                    rs.getString("image_url"),
+                    ingredients,
+                    instructions
+                );
+
+                recipes.add(recipe);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Failed to load recipes: " + e.getMessage());
+        }
+
+        System.out.println("Recipes loaded from database: " + recipes.size());
+        return recipes;
     }
 }

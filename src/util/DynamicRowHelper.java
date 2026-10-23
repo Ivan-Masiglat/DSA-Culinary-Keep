@@ -1,10 +1,10 @@
 package util;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 
 public class DynamicRowHelper {
 

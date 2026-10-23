@@ -1,13 +1,12 @@
 package view.screens;
 
 import config.AppTheme;
-import model.Recipe;
-import util.DynamicRowHelper;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import model.Recipe;
+import util.DynamicRowHelper;
 
 public class RecipeDetailScreen extends JScrollPane {
 

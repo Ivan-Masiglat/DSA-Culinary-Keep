@@ -1,11 +1,9 @@
 package view;
 
-import javax.swing.*;
-
 import config.AppTheme;
-
 import java.awt.*;
 import java.io.File;
+import javax.swing.*;
 
 public class BackgroundPanel extends JPanel {
     private Image bgImage;

@@ -1,20 +1,17 @@
 package view.screens;
 
-import model.Recipe;
-import util.DynamicRowHelper;
-import view.components.RecipeCard;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-
 import config.AppTheme;
-
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import model.Recipe;
+import util.DynamicRowHelper;
+import view.components.RecipeCard;
 
 public class CollectionScreen extends JPanel {
 

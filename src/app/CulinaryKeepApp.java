@@ -1,17 +1,20 @@
+
 package app;
 
+import database.DatabaseManager;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.*;
 import model.Recipe;
 import util.SeedData;
 import view.BackgroundPanel;
+import view.SplashScreen;
 import view.components.BottomNavBar;
 import view.components.RecipeCard;
 import view.screens.AddRecipeScreen;
 import view.screens.CollectionScreen;
 import view.screens.RecipeDetailScreen;
-
-import javax.swing.*;
-import java.awt.*;
-import java.util.List;
 
 public class CulinaryKeepApp extends JFrame {
 
@@ -19,7 +22,7 @@ public class CulinaryKeepApp extends JFrame {
 
     private CardLayout screenCardLayout;
     private JPanel mobileScreenContainer;
-    
+
     private CollectionScreen collectionScreen;
     private AddRecipeScreen addRecipeScreen;
 
@@ -30,7 +33,27 @@ public class CulinaryKeepApp extends JFrame {
         setResizable(false);
         setLocationRelativeTo(null);
 
-        recipes = SeedData.getInitialRecipes();
+        ImageIcon appIcon = new ImageIcon("assets/culinary_keep.jpg");
+
+        if (appIcon.getIconWidth() > 0) {
+            setIconImage(appIcon.getImage());
+        }
+
+        DatabaseManager.initializeDatabase();
+
+        List<Recipe> savedRecipes = DatabaseManager.getAllRecipes();
+
+        if (savedRecipes.isEmpty()) {
+            List<Recipe> initialRecipes = SeedData.getInitialRecipes();
+
+            for (Recipe recipe : initialRecipes) {
+                DatabaseManager.saveRecipe(recipe);
+            }
+
+            savedRecipes = DatabaseManager.getAllRecipes();
+        }
+
+        recipes = new ArrayList<>(savedRecipes);
 
         BackgroundPanel phoneScreen = new BackgroundPanel();
 
@@ -38,63 +61,120 @@ public class CulinaryKeepApp extends JFrame {
         mobileScreenContainer = new JPanel(screenCardLayout);
         mobileScreenContainer.setOpaque(false);
 
-        RecipeCard.CardActionListener cardListener = new RecipeCard.CardActionListener() {
-            @Override
-            public void onFavoriteToggle(Recipe recipe) {
-                recipe.setFavorite(!recipe.isFavorite());
-                collectionScreen.refreshGrid();
-            }
+        RecipeCard.CardActionListener cardListener =
+            new RecipeCard.CardActionListener() {
 
-            @Override
-            public void onCardClick(Recipe recipe) {
-                recipe.incrementViews();
-                collectionScreen.refreshGrid();
+                @Override
+                public void onFavoriteToggle(Recipe recipe) {
+                    recipe.setFavorite(!recipe.isFavorite());
+                    collectionScreen.refreshGrid();
+                }
 
-                // Dynamically add Detail Screen & Switch Card View
-                RecipeDetailScreen detailScreen = new RecipeDetailScreen(recipe, () -> {
-                    screenCardLayout.show(mobileScreenContainer, "COLLECTION");
-                });
-                mobileScreenContainer.add(detailScreen, "DETAIL");
-                screenCardLayout.show(mobileScreenContainer, "DETAIL");
-            }
-        };
+                @Override
+                public void onCardClick(Recipe recipe) {
+                    recipe.incrementViews();
+                    collectionScreen.refreshGrid();
 
-        collectionScreen = new CollectionScreen(recipes, cardListener);
+                    RecipeDetailScreen detailScreen =
+                        new RecipeDetailScreen(recipe, () ->
+                            screenCardLayout.show(
+                                mobileScreenContainer,
+                                "COLLECTION"
+                            )
+                        );
+
+                    mobileScreenContainer.add(detailScreen, "DETAIL");
+                    screenCardLayout.show(
+                        mobileScreenContainer,
+                        "DETAIL"
+                    );
+                }
+            };
+
+        collectionScreen = new CollectionScreen(
+            recipes,
+            cardListener
+        );
+
         addRecipeScreen = new AddRecipeScreen(newRecipe -> {
             recipes.add(0, newRecipe);
+
+            collectionScreen.setShowFavoritesOnly(false);
             collectionScreen.refreshGrid();
-            screenCardLayout.show(mobileScreenContainer, "COLLECTION");
+
+            screenCardLayout.show(
+                mobileScreenContainer,
+                "COLLECTION"
+            );
         });
 
-        mobileScreenContainer.add(collectionScreen, "COLLECTION");
-        mobileScreenContainer.add(addRecipeScreen, "ADD");
+        mobileScreenContainer.add(
+            collectionScreen,
+            "COLLECTION"
+        );
 
-        BottomNavBar navBar = new BottomNavBar(new BottomNavBar.NavListener() {
-            @Override
-            public void onCollectionClicked() {
-                collectionScreen.setShowFavoritesOnly(false);
-                screenCardLayout.show(mobileScreenContainer, "COLLECTION");
+        mobileScreenContainer.add(
+            addRecipeScreen,
+            "ADD"
+        );
+
+        BottomNavBar navBar = new BottomNavBar(
+            new BottomNavBar.NavListener() {
+
+                @Override
+                public void onCollectionClicked() {
+                    collectionScreen.setShowFavoritesOnly(false);
+                    collectionScreen.refreshGrid();
+
+                    screenCardLayout.show(
+                        mobileScreenContainer,
+                        "COLLECTION"
+                    );
+                }
+
+                @Override
+                public void onAddClicked() {
+                    screenCardLayout.show(
+                        mobileScreenContainer,
+                        "ADD"
+                    );
+                }
+
+                @Override
+                public void onFavoritesClicked() {
+                    collectionScreen.setShowFavoritesOnly(true);
+                    collectionScreen.refreshGrid();
+
+                    screenCardLayout.show(
+                        mobileScreenContainer,
+                        "COLLECTION"
+                    );
+                }
             }
+        );
 
-            @Override
-            public void onAddClicked() {
-                screenCardLayout.show(mobileScreenContainer, "ADD");
-            }
+        phoneScreen.add(
+            mobileScreenContainer,
+            BorderLayout.CENTER
+        );
 
-            @Override
-            public void onFavoritesClicked() {
-                collectionScreen.setShowFavoritesOnly(true);
-                screenCardLayout.show(mobileScreenContainer, "COLLECTION");
-            }
-        });
-
-        phoneScreen.add(mobileScreenContainer, BorderLayout.CENTER);
-        phoneScreen.add(navBar, BorderLayout.SOUTH);
+        phoneScreen.add(
+            navBar,
+            BorderLayout.SOUTH
+        );
 
         add(phoneScreen);
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new CulinaryKeepApp().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            SplashScreen splash = new SplashScreen();
+            splash.setVisible(true);
+
+            splash.startSplash(() -> {
+                CulinaryKeepApp app = new CulinaryKeepApp();
+                app.setVisible(true);
+            });
+        });
     }
 }
