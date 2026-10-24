@@ -64,6 +64,7 @@ public class CulinaryKeepApp extends JFrame {
             @Override
             public void onFavoriteToggle(Recipe recipe) {
                 recipe.setFavorite(!recipe.isFavorite());
+                DatabaseManager.updateRecipe(recipe);
                 if (collectionScreen != null) collectionScreen.refreshGrid();
                 if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
             }
@@ -71,6 +72,7 @@ public class CulinaryKeepApp extends JFrame {
             @Override
             public void onCardClick(Recipe recipe) {
                 recipe.incrementViews();
+                DatabaseManager.updateRecipe(recipe);
                 if (collectionScreen != null) collectionScreen.refreshGrid();
                 if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
 
@@ -81,15 +83,31 @@ public class CulinaryKeepApp extends JFrame {
                 mobileScreenContainer.add(detailScreen, "DETAIL");
                 screenCardLayout.show(mobileScreenContainer, "DETAIL");
             }
+
+            @Override
+            public void onDeleteRequested(Recipe recipe) {
+                int option = JOptionPane.showConfirmDialog(
+                    CulinaryKeepApp.this,
+                    "Are you sure you want to delete '" + recipe.getName() + "'?",
+                    "Delete Recipe",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+                );
+
+                if (option == JOptionPane.YES_OPTION) {
+                    recipes.remove(recipe);
+                    DatabaseManager.deleteRecipe(recipe);
+                    if (collectionScreen != null) collectionScreen.refreshGrid();
+                    if (mostViewedScreen != null) mostViewedScreen.refreshMostViewed();
+                }
+            }
         };
 
-        // Initialize CollectionScreen first
         collectionScreen = new CollectionScreen(
             recipes,
             cardListener
         );
 
-        // Initialize HomeScreen and connect search query directly to collectionScreen
         homeScreen = new HomeScreen(
             query -> {
                 collectionScreen.setShowFavoritesOnly(false);
@@ -101,6 +119,7 @@ public class CulinaryKeepApp extends JFrame {
 
         addRecipeScreen = new AddRecipeScreen(newRecipe -> {
             recipes.add(0, newRecipe);
+            DatabaseManager.saveRecipe(newRecipe);
             collectionScreen.setShowFavoritesOnly(false);
             collectionScreen.setSearchQuery("");
             collectionScreen.refreshGrid();
@@ -114,7 +133,6 @@ public class CulinaryKeepApp extends JFrame {
             () -> screenCardLayout.show(mobileScreenContainer, "COLLECTION")
         );
 
-        // Register screens in CardLayout
         mobileScreenContainer.add(homeScreen, "HOME");
         mobileScreenContainer.add(collectionScreen, "COLLECTION");
         mobileScreenContainer.add(addRecipeScreen, "ADD");
@@ -122,7 +140,6 @@ public class CulinaryKeepApp extends JFrame {
 
         screenCardLayout.show(mobileScreenContainer, "HOME");
 
-        // Bottom Nav Bar wiring
         BottomNavBar navBar = new BottomNavBar(
             new BottomNavBar.NavListener() {
                 @Override

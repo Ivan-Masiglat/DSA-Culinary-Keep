@@ -14,6 +14,7 @@ public class RecipeCard extends JPanel {
     public interface CardActionListener {
         void onFavoriteToggle(Recipe recipe);
         void onCardClick(Recipe recipe);
+        void onDeleteRequested(Recipe recipe);
     }
 
     private final Recipe recipe;
@@ -67,25 +68,69 @@ public class RecipeCard extends JPanel {
 
         imageBox.add(imageLabel);
 
-        // Prominent Heart Button Container (40x40 circle)
+        // Delete Button at Top-Left Corner (32x32 badge)
+        JLabel deleteLabel = new JLabel("", SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(180, 40, 40, 200));
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("SansSerif", Font.BOLD, 13));
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth("X")) / 2;
+                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString("X", x, y);
+                g2.dispose();
+            }
+        };
+        deleteLabel.setBounds(6, 6, 32, 32);
+        deleteLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        deleteLabel.setToolTipText("Delete Recipe");
+
+        imageBox.add(deleteLabel);
+        imageBox.setComponentZOrder(deleteLabel, 0);
+
+        deleteLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                e.consume();
+                if (listener != null) {
+                    listener.onDeleteRequested(recipe);
+                }
+            }
+        });
+
+        // Favorite Heart Button at Top-Right Corner (32x32 badge)
         JLabel heartLabel = new JLabel("", SwingConstants.CENTER) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 70)); // Dark semi-transparent backdrop
+                g2.setColor(new Color(0, 0, 0, 70));
                 g2.fillOval(0, 0, getWidth(), getHeight());
                 g2.dispose();
                 super.paintComponent(g);
             }
         };
-        heartLabel.setBounds(112, 8, 40, 40); // Larger size and positioning
+        
+        heartLabel.setBounds(122, 6, 32, 32);
         heartLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         updateHeartIcon(heartLabel, recipe.isFavorite());
 
         imageBox.add(heartLabel);
         imageBox.setComponentZOrder(heartLabel, 0);
+
+        // Keep heart badge locked to top-right corner on panel resize
+        imageBox.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                heartLabel.setBounds(imageBox.getWidth() - 38, 6, 32, 32);
+                imageLabel.setBounds(0, 0, imageBox.getWidth(), imageBox.getHeight());
+            }
+        });
 
         heartLabel.addMouseListener(new MouseAdapter() {
             @Override
@@ -149,7 +194,7 @@ public class RecipeCard extends JPanel {
 
     private void updateHeartIcon(JLabel heartLabel, boolean isFav) {
         String assetPath = isFav ? HEART_RED_ASSET : HEART_WHITE_ASSET;
-        // Scaled up icon size to 28x28 for clear visibility
+        // Scaled up to 28x28 so the heart icon fills the circle badge clearly
         ImageIcon heartIcon = loadRecipeImage(assetPath, 28, 28);
 
         if (heartIcon != null) {
@@ -158,7 +203,7 @@ public class RecipeCard extends JPanel {
         } else {
             heartLabel.setIcon(null);
             heartLabel.setText(isFav ? "[x]" : "[ ]");
-            heartLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+            heartLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
             heartLabel.setForeground(isFav ? Color.RED : Color.WHITE);
         }
     }
