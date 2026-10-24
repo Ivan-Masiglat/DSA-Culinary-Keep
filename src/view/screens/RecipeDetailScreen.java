@@ -3,6 +3,9 @@ package view.screens;
 import config.AppTheme;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.*;
@@ -17,20 +20,27 @@ public class RecipeDetailScreen extends JPanel {
 
     private final Recipe recipe;
     private final BackListener backListener;
-    private int currentServings = 1;
 
+    private int currentServings;
+    private final int baseServings;
+
+    private JLabel titleLabel;
+    private JLabel imgLabel;
     private JLabel servingsValueLabel;
     private JPanel ingredientsContainer;
+    private JPanel stepsContainer;
 
     public RecipeDetailScreen(Recipe recipe, BackListener backListener) {
         this.recipe = recipe;
         this.backListener = backListener;
 
+        this.baseServings = recipe.getBaseServings() > 0 ? recipe.getBaseServings() : 1;
+        this.currentServings = this.baseServings;
+
         setLayout(new BorderLayout());
         setOpaque(false);
         setBorder(new EmptyBorder(12, 16, 12, 16));
 
-        // Main Cream Background Card
         JPanel contentCard = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -48,96 +58,74 @@ public class RecipeDetailScreen extends JPanel {
         contentCard.setOpaque(false);
         contentCard.setBorder(new EmptyBorder(16, 16, 16, 16));
 
-        // 1. Back Button Header Row
-        JButton backBtn = new JButton("← Back") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(240, 230, 215));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.setColor(AppTheme.COLOR_BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        backBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
-        backBtn.setForeground(new Color(60, 30, 15));
-        backBtn.setContentAreaFilled(false);
-        backBtn.setBorderPainted(false);
-        backBtn.setFocusPainted(false);
-        backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        backBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        backBtn.setMaximumSize(new Dimension(80, 30));
+        // 1. Navigation & Action Header (Back & Edit)
+        JPanel headerBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        headerBar.setOpaque(false);
+        headerBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JButton backBtn = createPillButton("← Back");
         backBtn.addActionListener(e -> {
             if (backListener != null) backListener.onBackClicked();
         });
 
-        contentCard.add(backBtn);
+        JButton editBtn = createPillButton("✎ Edit");
+        editBtn.addActionListener(e -> openEditDialog());
+
+        headerBar.add(backBtn);
+        headerBar.add(editBtn);
+
+        contentCard.add(headerBar);
         contentCard.add(Box.createVerticalStrut(12));
 
         // 2. Recipe Title
-        JLabel titleLabel = new JLabel("<html><body style='width: 250px;'>" + recipe.getName().toUpperCase() + "</body></html>");
-        titleLabel.setFont(new Font("Serif", Font.BOLD, 20));
+        titleLabel = new JLabel(recipe.getName().toUpperCase());
+        titleLabel.setFont(new Font("Serif", Font.BOLD, 22));
         titleLabel.setForeground(new Color(60, 30, 15));
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         contentCard.add(titleLabel);
         contentCard.add(Box.createVerticalStrut(12));
 
-        // 3. Hero Recipe Image Box
-        JPanel imageFrame = new JPanel(new BorderLayout());
-        imageFrame.setOpaque(false);
-        imageFrame.setMaximumSize(new Dimension(360, 150));
-        imageFrame.setPreferredSize(new Dimension(360, 150));
-        imageFrame.setAlignmentX(Component.LEFT_ALIGNMENT);
+        // 3. Main Recipe Image
+        imgLabel = new JLabel("", SwingConstants.CENTER);
+        imgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        imgLabel.setPreferredSize(new Dimension(340, 180));
+        imgLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
 
-        JLabel imageLabel = new JLabel("", SwingConstants.CENTER);
-        ImageIcon scaledImage = loadRecipeImage(recipe.getImageUrl(), 340, 140);
-        if (scaledImage == null) {
-            scaledImage = loadRecipeImage("assets/placeholder.png", 100, 100);
-        }
-        if (scaledImage != null) {
-            imageLabel.setIcon(scaledImage);
-        }
+        updateImageDisplay();
+        contentCard.add(imgLabel);
+        contentCard.add(Box.createVerticalStrut(14));
 
-        imageFrame.add(imageLabel, BorderLayout.CENTER);
-        contentCard.add(imageFrame);
-        contentCard.add(Box.createVerticalStrut(12));
-
-        // 4. Servings Control Bar
+        // 4. Servings Stepper Bar (- / +)
         JPanel servingsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         servingsPanel.setOpaque(false);
         servingsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel servingsLabel = new JLabel("Servings:");
-        servingsLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        servingsLabel.setForeground(new Color(60, 30, 15));
+        JLabel servingsTextLabel = new JLabel("Servings:");
+        servingsTextLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        servingsTextLabel.setForeground(new Color(60, 30, 15));
 
         JButton minusBtn = createStepperButton("-");
-        JButton plusBtn = createStepperButton("+");
-
         servingsValueLabel = new JLabel(String.valueOf(currentServings), SwingConstants.CENTER);
         servingsValueLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        servingsValueLabel.setForeground(new Color(60, 30, 15));
         servingsValueLabel.setPreferredSize(new Dimension(24, 24));
+
+        JButton plusBtn = createStepperButton("+");
 
         minusBtn.addActionListener(e -> {
             if (currentServings > 1) {
                 currentServings--;
                 servingsValueLabel.setText(String.valueOf(currentServings));
-                updateIngredientsList();
+                renderIngredients();
             }
         });
 
         plusBtn.addActionListener(e -> {
             currentServings++;
             servingsValueLabel.setText(String.valueOf(currentServings));
-            updateIngredientsList();
+            renderIngredients();
         });
 
-        servingsPanel.add(servingsLabel);
+        servingsPanel.add(servingsTextLabel);
         servingsPanel.add(minusBtn);
         servingsPanel.add(servingsValueLabel);
         servingsPanel.add(plusBtn);
@@ -146,177 +134,302 @@ public class RecipeDetailScreen extends JPanel {
         contentCard.add(Box.createVerticalStrut(16));
 
         // 5. Ingredients Section Header
-        JLabel ingredientsHeader = new JLabel("INGREDIENTS");
-        ingredientsHeader.setFont(new Font("SansSerif", Font.BOLD, 12));
-        ingredientsHeader.setForeground(new Color(212, 100, 48));
-        ingredientsHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        contentCard.add(ingredientsHeader);
+        JLabel ingHeader = new JLabel("INGREDIENTS");
+        ingHeader.setFont(new Font("SansSerif", Font.BOLD, 12));
+        ingHeader.setForeground(new Color(212, 100, 48));
+        ingHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentCard.add(ingHeader);
         contentCard.add(Box.createVerticalStrut(6));
 
-        // Dynamic Ingredients Container
         ingredientsContainer = new JPanel();
         ingredientsContainer.setLayout(new BoxLayout(ingredientsContainer, BoxLayout.Y_AXIS));
         ingredientsContainer.setOpaque(false);
         ingredientsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         contentCard.add(ingredientsContainer);
-        updateIngredientsList();
-
         contentCard.add(Box.createVerticalStrut(16));
+
+        renderIngredients();
 
         // 6. Steps Section Header
         JLabel stepsHeader = new JLabel("STEPS");
         stepsHeader.setFont(new Font("SansSerif", Font.BOLD, 12));
         stepsHeader.setForeground(new Color(212, 100, 48));
         stepsHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         contentCard.add(stepsHeader);
         contentCard.add(Box.createVerticalStrut(6));
 
-        // Steps List Items formatted with HTML wrapping to fit inside card bounds
-        if (recipe.getInstructions() != null && !recipe.getInstructions().isEmpty()) {
-            int stepNum = 1;
-            for (String step : recipe.getInstructions()) {
-                if (!step.trim().isEmpty()) {
-                    JLabel stepLabel = new JLabel("<html><body style='width: 250px;'>" + stepNum + ". " + step.trim() + "</body></html>");
-                    stepLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
-                    stepLabel.setForeground(new Color(40, 20, 10));
-                    stepLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    contentCard.add(stepLabel);
-                    contentCard.add(Box.createVerticalStrut(6));
-                    stepNum++;
-                }
-            }
-        } else {
-            JLabel noSteps = new JLabel("No instructions listed");
-            noSteps.setFont(new Font("SansSerif", Font.ITALIC, 12));
-            noSteps.setForeground(Color.GRAY);
-            noSteps.setAlignmentX(Component.LEFT_ALIGNMENT);
-            contentCard.add(noSteps);
-        }
+        stepsContainer = new JPanel();
+        stepsContainer.setLayout(new BoxLayout(stepsContainer, BoxLayout.Y_AXIS));
+        stepsContainer.setOpaque(false);
+        stepsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // ScrollPane with vertical scrolling only and no horizontal scrollbar
+        contentCard.add(stepsContainer);
+        renderSteps();
+
         JScrollPane scrollPane = new JScrollPane(contentCard);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setBorder(null);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
     }
 
-    private void updateIngredientsList() {
-        ingredientsContainer.removeAll();
+    // --- POPUP EDIT DIALOG ---
+    private void openEditDialog() {
+        Window ancestor = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(ancestor, "Edit Recipe", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(380, 500);
+        dialog.setLocationRelativeTo(this);
 
-        if (recipe.getIngredients() != null && !recipe.getIngredients().isEmpty()) {
-            for (String item : recipe.getIngredients()) {
-                if (!item.trim().isEmpty()) {
-                    String scaledItem = scaleIngredientText(item.trim(), currentServings);
-                    JLabel itemLabel = new JLabel("<html><body style='width: 250px;'>• " + scaledItem + "</body></html>");
-                    itemLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
-                    itemLabel.setForeground(new Color(40, 20, 10));
-                    itemLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    ingredientsContainer.add(itemLabel);
-                    ingredientsContainer.add(Box.createVerticalStrut(4));
-                }
+        JPanel form = new JPanel();
+        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+        form.setBorder(new EmptyBorder(12, 12, 12, 12));
+        form.setBackground(new Color(254, 246, 235));
+
+        JTextField nameField = new JTextField(recipe.getName());
+        JTextField timeField = new JTextField(recipe.getPrepTime());
+        JComboBox<String> catCombo = new JComboBox<>(new String[]{"Breakfast", "Lunch", "Dinner", "Dessert"});
+        catCombo.setSelectedItem(recipe.getCategory());
+
+        JTextArea ingArea = new JTextArea(String.join("\n", recipe.getIngredients()), 6, 20);
+        JTextArea stepsArea = new JTextArea(String.join("\n", recipe.getInstructions()), 6, 20);
+
+        form.add(new JLabel("Recipe Name:"));
+        form.add(nameField);
+        form.add(Box.createVerticalStrut(8));
+
+        form.add(new JLabel("Category:"));
+        form.add(catCombo);
+        form.add(Box.createVerticalStrut(8));
+
+        form.add(new JLabel("Prep Time:"));
+        form.add(timeField);
+        form.add(Box.createVerticalStrut(8));
+
+        form.add(new JLabel("Ingredients (1 per line):"));
+        form.add(new JScrollPane(ingArea));
+        form.add(Box.createVerticalStrut(8));
+
+        form.add(new JLabel("Steps (1 per line):"));
+        form.add(new JScrollPane(stepsArea));
+        form.add(Box.createVerticalStrut(12));
+
+        JButton saveBtn = new JButton("Save Changes");
+        saveBtn.setBackground(new Color(212, 100, 48));
+        saveBtn.setForeground(Color.WHITE);
+        saveBtn.addActionListener(e -> {
+            recipe.setName(nameField.getText().trim());
+            recipe.setPrepTime(timeField.getText().trim());
+            recipe.setCategory((String) catCombo.getSelectedItem());
+
+            List<String> newIngs = new ArrayList<>();
+            for (String line : ingArea.getText().split("\\r?\\n")) {
+                if (!line.trim().isEmpty()) newIngs.add(line.trim());
             }
-        } else {
-            JLabel noIng = new JLabel("• No ingredients listed");
-            noIng.setFont(new Font("SansSerif", Font.ITALIC, 12));
-            noIng.setForeground(Color.GRAY);
-            noIng.setAlignmentX(Component.LEFT_ALIGNMENT);
-            ingredientsContainer.add(noIng);
+            recipe.getIngredients().clear();
+            recipe.getIngredients().addAll(newIngs);
+
+            List<String> newSteps = new ArrayList<>();
+            for (String line : stepsArea.getText().split("\\r?\\n")) {
+                if (!line.trim().isEmpty()) newSteps.add(line.trim());
+            }
+            recipe.getInstructions().clear();
+            recipe.getInstructions().addAll(newSteps);
+
+            // Refresh UI directly
+            titleLabel.setText(recipe.getName().toUpperCase());
+            renderIngredients();
+            renderSteps();
+            dialog.dispose();
+        });
+
+        form.add(saveBtn);
+
+        JScrollPane scroll = new JScrollPane(form);
+        scroll.setBorder(null);
+        dialog.add(scroll, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void renderIngredients() {
+        ingredientsContainer.removeAll();
+        double factor = (double) currentServings / baseServings;
+
+        for (String rawIngredient : recipe.getIngredients()) {
+            String cleanText = rawIngredient.trim().replaceAll("^[•\\-\\s]+", "");
+            String scaledText = scaleIngredientNumbers(cleanText, factor);
+
+            JLabel ingLabel = new JLabel("<html><body style='width: 290px;'>• " + scaledText + "</body></html>");
+            ingLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+            ingLabel.setForeground(new Color(60, 30, 15));
+            ingLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            ingredientsContainer.add(ingLabel);
+            ingredientsContainer.add(Box.createVerticalStrut(4));
         }
 
         ingredientsContainer.revalidate();
         ingredientsContainer.repaint();
     }
 
-    private String scaleIngredientText(String ingredient, int multiplier) {
-        if (multiplier <= 1) return ingredient;
+    private void renderSteps() {
+        stepsContainer.removeAll();
+        List<String> instructions = recipe.getInstructions();
+        for (int i = 0; i < instructions.size(); i++) {
+            String rawStep = instructions.get(i).trim();
+            String cleanStep = rawStep.replaceAll("^\\d+\\.\\s*\\d+\\.\\s*", "").replaceAll("^\\d+\\.\\s*", "");
 
-        Pattern pattern = Pattern.compile("^(\\d+\\/\\d+|\\d+(?:\\.\\d+)?)");
-        Matcher matcher = pattern.matcher(ingredient);
+            JLabel stepLabel = new JLabel("<html><body style='width: 290px;'>" + (i + 1) + ". " + cleanStep + "</body></html>");
+            stepLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+            stepLabel.setForeground(new Color(60, 30, 15));
+            stepLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        if (matcher.find()) {
-            String rawVal = matcher.group(1);
-            double val = 0;
-
-            if (rawVal.contains("/")) {
-                String[] parts = rawVal.split("/");
-                val = Double.parseDouble(parts[0]) / Double.parseDouble(parts[1]);
-            } else {
-                val = Double.parseDouble(rawVal);
-            }
-
-            double scaledVal = val * multiplier;
-            String formattedVal;
-
-            if (scaledVal == Math.floor(scaledVal)) {
-                formattedVal = String.valueOf((int) scaledVal);
-            } else {
-                formattedVal = String.format("%.1f", scaledVal);
-            }
-
-            return ingredient.replaceFirst("^" + Pattern.quote(rawVal), formattedVal);
+            stepsContainer.add(stepLabel);
+            stepsContainer.add(Box.createVerticalStrut(6));
         }
-
-        return ingredient;
+        stepsContainer.revalidate();
+        stepsContainer.repaint();
     }
 
-    private JButton createStepperButton(String text) {
-        JButton btn = new JButton("") {
+    private String scaleIngredientNumbers(String text, double factor) {
+        Pattern pattern = Pattern.compile("(\\d+(\\.\\d+)?)\\s*(lb|g|oz|kg|cup|cups|tbsp|tsp|large|small|medium|whole|cloves|slices|grams)?", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(text);
+
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            try {
+                double val = Double.parseDouble(matcher.group(1));
+                double scaled = val * factor;
+
+                String formattedVal = (scaled == (long) scaled) ? String.format("%d", (long) scaled) : String.format("%.1f", scaled);
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(formattedVal + (matcher.group(3) != null ? " " + matcher.group(3) : "")));
+            } catch (Exception e) {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    private void updateImageDisplay() {
+        ImageIcon icon = loadScaledImage(recipe.getImageUrl(), 340, 180);
+        if (icon != null) {
+            imgLabel.setIcon(icon);
+        } else {
+            imgLabel.setIcon(createDefaultPlaceholderIcon(340, 180));
+        }
+    }
+
+    private JButton createPillButton(String text) {
+        JButton btn = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(240, 230, 215));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(AppTheme.COLOR_BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
-
-                g2.setColor(new Color(60, 30, 15));
-                g2.setFont(new Font("SansSerif", Font.BOLD, 16));
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(text)) / 2;
-                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
-                g2.drawString(text, x, y);
-
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(212, 100, 48));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
                 g2.dispose();
+                super.paintComponent(g);
             }
         };
-        btn.setMargin(new Insets(0, 0, 0, 0));
+        btn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btn.setForeground(new Color(60, 30, 15));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setPreferredSize(new Dimension(28, 28));
+        btn.setPreferredSize(new Dimension(80, 28));
         return btn;
     }
 
-    private ImageIcon loadRecipeImage(String path, int targetWidth, int targetHeight) {
-        if (path == null || path.trim().isEmpty()) return null;
+    private JButton createStepperButton(String text) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(230, 220, 205));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+                g2.setColor(new Color(180, 170, 160));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 6, 6);
+                g2.setFont(new Font("SansSerif", Font.BOLD, 13));
+                g2.setColor(new Color(60, 30, 15));
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(text)) / 2;
+                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(text, x, y);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(28, 28));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
 
-        try {
-            File imgFile = new File(path);
-            Image img = null;
-            if (imgFile.exists()) {
-                img = new ImageIcon(path).getImage();
-            } else {
-                java.net.URL imgUrl = getClass().getResource("/" + path);
-                if (imgUrl != null) {
-                    img = new ImageIcon(imgUrl).getImage();
+    private ImageIcon loadScaledImage(String path, int targetWidth, int targetHeight) {
+        if (path != null && !path.trim().isEmpty()) {
+            try {
+                File imgFile = new File(path);
+                Image img = null;
+
+                if (imgFile.exists()) {
+                    img = new ImageIcon(imgFile.getAbsolutePath()).getImage();
+                } else {
+                    String resourcePath = path.startsWith("/") ? path : "/" + path;
+                    java.net.URL imgUrl = getClass().getResource(resourcePath);
+                    if (imgUrl != null) {
+                        img = new ImageIcon(imgUrl).getImage();
+                    }
                 }
+
+                if (img != null && img.getWidth(null) > 0) {
+                    Image resized = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+                    return new ImageIcon(resized);
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private Icon createDefaultPlaceholderIcon(int width, int height) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(new Color(245, 130, 32));
+                g2.setStroke(new BasicStroke(2f));
+
+                int rectW = 60;
+                int rectH = 40;
+                int rectX = x + (width - rectW) / 2;
+                int rectY = y + (height - rectH) / 2;
+
+                g2.drawRoundRect(rectX, rectY, rectW, rectH, 8, 8);
+                g2.drawPolyline(
+                    new int[]{rectX + 10, rectX + 24, rectX + 38, rectX + 50},
+                    new int[]{rectY + 30, rectY + 16, rectY + 28, rectY + 20},
+                    4
+                );
+                g2.fillOval(rectX + 38, rectY + 10, 8, 8);
+                g2.dispose();
             }
 
-            if (img != null && img.getWidth(null) > 0) {
-                Image resized = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
-                return new ImageIcon(resized);
-            }
-        } catch (Exception ignored) {}
-        return null;
+            @Override
+            public int getIconWidth() { return width; }
+
+            @Override
+            public int getIconHeight() { return height; }
+        };
     }
 }

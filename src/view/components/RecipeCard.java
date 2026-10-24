@@ -20,21 +20,14 @@ public class RecipeCard extends JPanel {
     private final Recipe recipe;
     private final CardActionListener listener;
 
-    private static final String DEFAULT_PLACEHOLDER_PATH = "assets/placeholder.png";
-    private static final String HEART_WHITE_ASSET = "assets/heart_white.png";
-    private static final String HEART_RED_ASSET = "assets/heart_red.png";
-
     public RecipeCard(Recipe recipe, CardActionListener listener) {
         this.recipe = recipe;
         this.listener = listener;
 
-        setLayout(new BorderLayout(0, 6));
+        setLayout(new BorderLayout());
         setOpaque(false);
-        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        setPreferredSize(new Dimension(160, 210));
 
-        // Top Image Container Box
-        JPanel imageBox = new JPanel() {
+        JPanel cardContainer = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -47,142 +40,68 @@ public class RecipeCard extends JPanel {
                 super.paintComponent(g);
             }
         };
-        imageBox.setLayout(null);
-        imageBox.setOpaque(false);
-        imageBox.setPreferredSize(new Dimension(160, 135));
+        cardContainer.setLayout(new BorderLayout());
+        cardContainer.setOpaque(false);
+        cardContainer.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-        // Recipe Image Label
-        JLabel imageLabel = new JLabel("", SwingConstants.CENTER);
-        imageLabel.setBounds(0, 0, 160, 135);
-        
-        String imagePath = getRecipeImagePath(recipe);
-        ImageIcon scaledImage = loadRecipeImage(imagePath, 140, 115);
+        // 1. Top Bar Controls (Delete / Favorite)
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.setOpaque(false);
+        topBar.setBorder(new EmptyBorder(8, 8, 4, 8));
 
-        if (scaledImage == null) {
-            scaledImage = loadRecipeImage(DEFAULT_PLACEHOLDER_PATH, 95, 95);
+        JButton deleteBtn = createCircleButton("X", new Color(180, 40, 40), () -> {
+            if (listener != null) listener.onDeleteRequested(recipe);
+        });
+        deleteBtn.setToolTipText("Delete Recipe");
+
+        JButton favBtn = createCircleButton("♥", recipe.isFavorite() ? new Color(212, 60, 60) : new Color(180, 170, 160), () -> {
+            if (listener != null) listener.onFavoriteToggle(recipe);
+        });
+        favBtn.setToolTipText("Toggle Favorite");
+
+        topBar.add(deleteBtn, BorderLayout.WEST);
+        topBar.add(favBtn, BorderLayout.EAST);
+
+        // 2. Recipe Image Display
+        JLabel imgLabel = new JLabel("", SwingConstants.CENTER);
+        imgLabel.setPreferredSize(new Dimension(140, 90));
+
+        ImageIcon scaledImg = loadRecipeImage(recipe.getImageUrl(), 140, 90);
+        if (scaledImg != null) {
+            imgLabel.setIcon(scaledImg);
+        } else {
+            imgLabel.setIcon(createDefaultPlaceholderIcon(140, 90));
         }
 
-        if (scaledImage != null) {
-            imageLabel.setIcon(scaledImage);
-        }
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setOpaque(false);
+        centerPanel.add(topBar, BorderLayout.NORTH);
+        centerPanel.add(imgLabel, BorderLayout.CENTER);
 
-        imageBox.add(imageLabel);
+        // 3. Card Bottom Metadata Panel with View Count
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setOpaque(false);
+        infoPanel.setBorder(new EmptyBorder(6, 8, 8, 8));
 
-        // Delete Button at Top-Left Corner (32x32 badge)
-        JLabel deleteLabel = new JLabel("", SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(180, 40, 40, 200));
-                g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("SansSerif", Font.BOLD, 13));
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth("X")) / 2;
-                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
-                g2.drawString("X", x, y);
-                g2.dispose();
-            }
-        };
-        deleteLabel.setBounds(6, 6, 32, 32);
-        deleteLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        deleteLabel.setToolTipText("Delete Recipe");
-
-        imageBox.add(deleteLabel);
-        imageBox.setComponentZOrder(deleteLabel, 0);
-
-        deleteLabel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                e.consume();
-                if (listener != null) {
-                    listener.onDeleteRequested(recipe);
-                }
-            }
-        });
-
-        // Favorite Heart Button at Top-Right Corner (32x32 badge)
-        JLabel heartLabel = new JLabel("", SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 70));
-                g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        
-        heartLabel.setBounds(122, 6, 32, 32);
-        heartLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-        updateHeartIcon(heartLabel, recipe.isFavorite());
-
-        imageBox.add(heartLabel);
-        imageBox.setComponentZOrder(heartLabel, 0);
-
-        // Keep heart badge locked to top-right corner on panel resize
-        imageBox.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                heartLabel.setBounds(imageBox.getWidth() - 38, 6, 32, 32);
-                imageLabel.setBounds(0, 0, imageBox.getWidth(), imageBox.getHeight());
-            }
-        });
-
-        heartLabel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                e.consume();
-                if (listener != null) {
-                    listener.onFavoriteToggle(recipe);
-                }
-            }
-        });
-
-        // Bottom Details Container
-        JPanel infoBox = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(254, 246, 235));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(AppTheme.COLOR_BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        infoBox.setLayout(new BoxLayout(infoBox, BoxLayout.Y_AXIS));
-        infoBox.setOpaque(false);
-        infoBox.setBorder(new EmptyBorder(6, 6, 6, 6));
-
-        // Title
-        JLabel titleLabel = new JLabel(recipe.getName().toUpperCase(), SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel("<html><body style='width: 110px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;'>" + recipe.getName().toUpperCase() + "</body></html>");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
         titleLabel.setForeground(new Color(60, 30, 15));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        int cookingTime = getRecipeCookingTime(recipe);
+        // Displays Category, Prep Time, and View Count
+        String viewText = recipe.getViews() == 1 ? "1 view" : recipe.getViews() + " views";
+        JLabel subLabel = new JLabel(recipe.getCategory().toUpperCase() + " • " + recipe.getPrepTime() + " • " + viewText);
+        subLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        subLabel.setForeground(new Color(212, 100, 48));
 
-        String metaText = String.format("<html><center><font size='2' color='#D46430'><b>%s</b></font>&nbsp;&nbsp;<font size='2' color='#888888'>%dmins • %d views</font></center></html>",
-                recipe.getCategory().toUpperCase(),
-                cookingTime,
-                recipe.getViewCount()
-        );
-        JLabel metaLabel = new JLabel(metaText, SwingConstants.CENTER);
-        metaLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        infoPanel.add(titleLabel);
+        infoPanel.add(subLabel);
 
-        infoBox.add(titleLabel);
-        infoBox.add(Box.createVerticalStrut(2));
-        infoBox.add(metaLabel);
+        cardContainer.add(centerPanel, BorderLayout.CENTER);
+        cardContainer.add(infoPanel, BorderLayout.SOUTH);
 
-        add(imageBox, BorderLayout.CENTER);
-        add(infoBox, BorderLayout.SOUTH);
-
-        addMouseListener(new MouseAdapter() {
+        // Card Click Listener
+        cardContainer.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (listener != null) {
@@ -190,74 +109,105 @@ public class RecipeCard extends JPanel {
                 }
             }
         });
+
+        add(cardContainer, BorderLayout.CENTER);
     }
 
-    private void updateHeartIcon(JLabel heartLabel, boolean isFav) {
-        String assetPath = isFav ? HEART_RED_ASSET : HEART_WHITE_ASSET;
-        // Scaled up to 28x28 so the heart icon fills the circle badge clearly
-        ImageIcon heartIcon = loadRecipeImage(assetPath, 28, 28);
-
-        if (heartIcon != null) {
-            heartLabel.setIcon(heartIcon);
-            heartLabel.setText("");
-        } else {
-            heartLabel.setIcon(null);
-            heartLabel.setText(isFav ? "[x]" : "[ ]");
-            heartLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
-            heartLabel.setForeground(isFav ? Color.RED : Color.WHITE);
-        }
-    }
-
-    private String getRecipeImagePath(Recipe recipe) {
-        try {
-            return (String) recipe.getClass().getMethod("getImagePath").invoke(recipe);
-        } catch (Exception e1) {
-            try {
-                return (String) recipe.getClass().getMethod("getImage").invoke(recipe);
-            } catch (Exception e2) {
-                return null;
+    private JButton createCircleButton(String text, Color bgColor, Runnable action) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(bgColor);
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(text)) / 2;
+                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(text, x, y);
+                g2.dispose();
             }
-        }
-    }
+        };
+        btn.setPreferredSize(new Dimension(24, 24));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-    private int getRecipeCookingTime(Recipe recipe) {
-        try {
-            return (int) recipe.getClass().getMethod("getCookingTimeMinutes").invoke(recipe);
-        } catch (Exception e1) {
-            try {
-                return (int) recipe.getClass().getMethod("getPrepTime").invoke(recipe);
-            } catch (Exception e2) {
-                try {
-                    return (int) recipe.getClass().getMethod("getCookTime").invoke(recipe);
-                } catch (Exception e3) {
-                    return 30;
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) { e.consume(); }
+            @Override
+            public void mouseReleased(MouseEvent e) { e.consume(); }
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                e.consume();
+                if (action != null) {
+                    action.run();
                 }
             }
-        }
+        });
+
+        return btn;
     }
 
     private ImageIcon loadRecipeImage(String path, int targetWidth, int targetHeight) {
-        if (path == null || path.trim().isEmpty()) return null;
+        if (path != null && !path.trim().isEmpty()) {
+            try {
+                File imgFile = new File(path);
+                Image img = null;
 
-        try {
-            File imgFile = new File(path);
-            Image img = null;
-            if (imgFile.exists()) {
-                img = new ImageIcon(path).getImage();
-            } else {
-                java.net.URL imgUrl = getClass().getResource("/" + path);
-                if (imgUrl != null) {
-                    img = new ImageIcon(imgUrl).getImage();
+                if (imgFile.exists()) {
+                    img = new ImageIcon(imgFile.getAbsolutePath()).getImage();
+                } else {
+                    String resourcePath = path.startsWith("/") ? path : "/" + path;
+                    java.net.URL imgUrl = getClass().getResource(resourcePath);
+                    if (imgUrl != null) {
+                        img = new ImageIcon(imgUrl).getImage();
+                    }
                 }
-            }
 
-            if (img != null && img.getWidth(null) > 0) {
-                Image resized = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
-                return new ImageIcon(resized);
-            }
-        } catch (Exception e) {
-            // Fallback
+                if (img != null && img.getWidth(null) > 0) {
+                    Image resized = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+                    return new ImageIcon(resized);
+                }
+            } catch (Exception ignored) {}
         }
         return null;
+    }
+
+    private Icon createDefaultPlaceholderIcon(int width, int height) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(new Color(245, 130, 32));
+                g2.setStroke(new BasicStroke(2f));
+
+                int rectW = 40;
+                int rectH = 30;
+                int rectX = x + (width - rectW) / 2;
+                int rectY = y + (height - rectH) / 2;
+
+                g2.drawRoundRect(rectX, rectY, rectW, rectH, 6, 6);
+                g2.drawPolyline(
+                    new int[]{rectX + 6, rectX + 16, rectX + 26, rectX + 34},
+                    new int[]{rectY + 22, rectY + 12, rectY + 20, rectY + 14},
+                    4
+                );
+                g2.fillOval(rectX + 26, rectY + 8, 5, 5);
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() { return width; }
+
+            @Override
+            public int getIconHeight() { return height; }
+        };
     }
 }

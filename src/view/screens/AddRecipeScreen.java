@@ -2,6 +2,11 @@ package view.screens;
 
 import config.AppTheme;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.dnd.*;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
@@ -19,9 +24,12 @@ public class AddRecipeScreen extends JPanel {
     private final RecipeAddListener listener;
 
     private JTextField nameField;
-    private JTextField imageField;
     private JComboBox<String> categoryCombo;
     private JSpinner prepTimeSpinner;
+
+    private JPanel dropZonePanel;
+    private JLabel dropZoneLabel;
+    private String selectedImagePath = "";
 
     private JPanel ingredientsPanel;
     private JPanel stepsPanel;
@@ -70,11 +78,66 @@ public class AddRecipeScreen extends JPanel {
         contentCard.add(nameField);
         contentCard.add(Box.createVerticalStrut(12));
 
-        // 2. Image Path / URL
-        contentCard.add(createSectionHeader("IMAGE PATH / URL (OPTIONAL)"));
+        // 2. Drag & Drop Image Drop Zone
+        contentCard.add(createSectionHeader("RECIPE IMAGE (DRAG & DROP OR CLICK)"));
         contentCard.add(Box.createVerticalStrut(4));
-        imageField = createStyledSingleField();
-        contentCard.add(imageField);
+
+        dropZonePanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                
+                // Dashed Border Paint
+                float[] dash = {6.0f};
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, dash, 0.0f));
+                g2.setColor(new Color(200, 150, 100));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 10, 10);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        dropZonePanel.setOpaque(false);
+        dropZonePanel.setPreferredSize(new Dimension(300, 70));
+        dropZonePanel.setMaximumSize(new Dimension(320, 70));
+        dropZonePanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        dropZonePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        dropZoneLabel = new JLabel("📁 Drag & Drop Image Here or Click to Browse", SwingConstants.CENTER);
+        dropZoneLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        dropZoneLabel.setForeground(new Color(150, 100, 50));
+        dropZonePanel.add(dropZoneLabel, BorderLayout.CENTER);
+
+        // Click Handler for File Chooser
+        dropZonePanel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                JFileChooser chooser = new JFileChooser();
+                int option = chooser.showOpenDialog(AddRecipeScreen.this);
+                if (option == JFileChooser.APPROVE_OPTION) {
+                    processUploadedFile(chooser.getSelectedFile());
+                }
+            }
+        });
+
+        // Drag and Drop Handler
+        new DropTarget(dropZonePanel, new DropTargetAdapter() {
+            @Override
+            public void drop(DropTargetDropEvent dtde) {
+                try {
+                    dtde.acceptDrop(DnDConstants.ACTION_COPY);
+                    @SuppressWarnings("unchecked")
+                    List<File> droppedFiles = (List<File>) dtde.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+                    if (droppedFiles != null && !droppedFiles.isEmpty()) {
+                        processUploadedFile(droppedFiles.get(0));
+                    }
+                } catch (Exception ignored) {}
+            }
+        });
+
+        contentCard.add(dropZonePanel);
         contentCard.add(Box.createVerticalStrut(12));
 
         // 3. Category
@@ -187,6 +250,28 @@ public class AddRecipeScreen extends JPanel {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private void processUploadedFile(File file) {
+        if (file == null || !file.exists()) return;
+
+        try {
+            File assetsDir = new File("assets");
+            if (!assetsDir.exists()) {
+                assetsDir.mkdirs();
+            }
+
+            String fileName = System.currentTimeMillis() + "_" + file.getName();
+            File destFile = new File(assetsDir, fileName);
+
+            Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            selectedImagePath = "assets/" + fileName;
+            dropZoneLabel.setText("✓ " + file.getName());
+            dropZoneLabel.setForeground(new Color(40, 140, 40));
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to copy image to assets folder.", "Upload Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private JLabel createSectionHeader(String text) {
@@ -361,7 +446,6 @@ public class AddRecipeScreen extends JPanel {
 
         String category = (String) categoryCombo.getSelectedItem();
         int prepTime = (int) prepTimeSpinner.getValue();
-        String imagePath = imageField.getText().trim();
 
         List<String> ingredients = new ArrayList<>();
         for (JTextArea a : ingredientFields) {
@@ -375,7 +459,7 @@ public class AddRecipeScreen extends JPanel {
             if (!val.isEmpty()) steps.add(val);
         }
 
-        Recipe recipe = new Recipe(name, category, prepTime + " mins", imagePath, ingredients, steps);
+        Recipe recipe = new Recipe(name, category, prepTime + " mins", selectedImagePath, ingredients, steps);
 
         if (listener != null) {
             listener.onRecipeAdded(recipe);
@@ -387,7 +471,10 @@ public class AddRecipeScreen extends JPanel {
 
     private void resetForm() {
         nameField.setText("");
-        imageField.setText("");
+        selectedImagePath = "";
+        dropZoneLabel.setText("📁 Drag & Drop Image Here or Click to Browse");
+        dropZoneLabel.setForeground(new Color(150, 100, 50));
+
         categoryCombo.setSelectedIndex(0);
         prepTimeSpinner.setValue(20);
 

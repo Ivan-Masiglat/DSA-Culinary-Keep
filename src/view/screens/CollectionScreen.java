@@ -2,317 +2,266 @@ package view.screens;
 
 import config.AppTheme;
 import java.awt.*;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import model.Recipe;
-import util.DynamicRowHelper;
 import view.components.RecipeCard;
 
 public class CollectionScreen extends JPanel {
 
     private final List<Recipe> recipes;
-    private final RecipeCard.CardActionListener cardActionListener;
-    
-    private String currentCategoryFilter = "All";
+    private final RecipeCard.CardActionListener cardListener;
+
+    private final JPanel gridPanel;
+    private JLabel titleLabel;
+    private JTextField searchField;
+    private JPanel categoriesPanel;
+
     private boolean showFavoritesOnly = false;
-    private boolean showMostViewedOnly = false;
-    private String currentSearchQuery = "";
+    private String searchQuery = "";
+    private String selectedCategory = "All";
 
-    private static final String SEARCH_PLACEHOLDER = "Search recipes...";
+    private final String[] categories = {"All", "Breakfast", "Lunch", "Dinner", "Dessert"};
+    private final List<JButton> categoryButtons = new ArrayList<>();
 
-    private JPanel collectionCardFeed;
-    private JTextField searchBar;
-
-    public CollectionScreen(List<Recipe> recipes, RecipeCard.CardActionListener listener) {
+    public CollectionScreen(List<Recipe> recipes, RecipeCard.CardActionListener cardListener) {
         this.recipes = recipes;
-        this.cardActionListener = listener;
+        this.cardListener = cardListener;
 
         setLayout(new BorderLayout());
         setOpaque(false);
 
-        JPanel topBox = new JPanel();
-        topBox.setLayout(new BoxLayout(topBox, BoxLayout.Y_AXIS));
-        topBox.setOpaque(false);
+        // --- TOP HEADER: Logo, Search Bar & Category Pills ---
+        JPanel topHeader = new JPanel();
+        topHeader.setLayout(new BoxLayout(topHeader, BoxLayout.Y_AXIS));
+        topHeader.setOpaque(false);
+        topHeader.setBorder(new EmptyBorder(8, 12, 4, 12));
 
-        JLabel logoLabel = createLogoLabel();
-        topBox.add(Box.createVerticalStrut(20));
-        topBox.add(logoLabel);
-        topBox.add(Box.createVerticalStrut(20));
+        // 1. Center Logo / Header Banner (assets/logohome.png)
+        JPanel logoPanel = new JPanel() {
+            private Image logoImg;
 
-        JPanel controlsPanel = new JPanel();
-        controlsPanel.setLayout(new BoxLayout(controlsPanel, BoxLayout.Y_AXIS));
-        controlsPanel.setOpaque(false);
-        controlsPanel.setBorder(new EmptyBorder(0, 14, 8, 14));
-
-        searchBar = DynamicRowHelper.createStyledTextField(SEARCH_PLACEHOLDER, AppTheme.COLOR_BORDER);
-        searchBar.setMaximumSize(new Dimension(380, 40));
-        searchBar.setText(SEARCH_PLACEHOLDER);
-        searchBar.setForeground(Color.GRAY);
-
-        searchBar.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusGained(FocusEvent e) {
-                if (searchBar.getText().equals(SEARCH_PLACEHOLDER)) {
-                    searchBar.setText("");
-                    searchBar.setForeground(AppTheme.COLOR_TEXT_DARK);
-                }
+            {
+                try {
+                    File imgFile = new File("assets/logohome.png");
+                    if (imgFile.exists()) {
+                        logoImg = new ImageIcon(imgFile.getAbsolutePath()).getImage();
+                    } else {
+                        java.net.URL url = getClass().getResource("/assets/logohome.png");
+                        if (url != null) {
+                            logoImg = new ImageIcon(url).getImage();
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
 
             @Override
-            public void focusLost(FocusEvent e) {
-                if (searchBar.getText().trim().isEmpty()) {
-                    searchBar.setText(SEARCH_PLACEHOLDER);
-                    searchBar.setForeground(Color.GRAY);
-                    currentSearchQuery = "";
-                    refreshGrid();
-                }
-            }
-        });
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        searchBar.addKeyListener(new KeyAdapter() {
+                if (logoImg != null && logoImg.getWidth(null) > 0) {
+                    int imgWidth = Math.min(getWidth() - 20, 220);
+                    int imgHeight = (int) ((double) logoImg.getHeight(null) / logoImg.getWidth(null) * imgWidth);
+                    int x = (getWidth() - imgWidth) / 2;
+                    int y = (getHeight() - imgHeight) / 2;
+                    g2.drawImage(logoImg, x, y, imgWidth, imgHeight, this);
+                } else {
+                    // Vector/Text Fallback Header
+                    g2.setFont(new Font("Serif", Font.BOLD, 22));
+                    g2.setColor(new Color(60, 30, 15));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String text = showFavoritesOnly ? "Favorites" : "Culinary Keep";
+                    int x = (getWidth() - fm.stringWidth(text)) / 2;
+                    int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                    g2.drawString(text, x, y);
+                }
+                g2.dispose();
+            }
+        };
+        logoPanel.setOpaque(false);
+        logoPanel.setPreferredSize(new Dimension(300, 50));
+        logoPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        logoPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // Optional subtitle below logo
+        titleLabel = new JLabel(showFavoritesOnly ? "Favorites" : "All Recipes", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Serif", Font.BOLD, 14));
+        titleLabel.setForeground(new Color(150, 90, 40));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // 2. Search Bar
+        searchField = new JTextField() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.setColor(new Color(220, 210, 200));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        searchField.setBorder(new EmptyBorder(6, 10, 6, 10));
+        searchField.setOpaque(false);
+        searchField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        searchField.setPreferredSize(new Dimension(300, 36));
+        searchField.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        searchField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                String text = searchBar.getText().trim();
-                if (text.equals(SEARCH_PLACEHOLDER) || text.isEmpty()) {
-                    currentSearchQuery = "";
-                } else {
-                    currentSearchQuery = text.toLowerCase();
-                }
+                searchQuery = searchField.getText().trim();
                 refreshGrid();
             }
         });
 
-        JScrollPane pillsScroll = createPillsPanel();
+        // 3. Category Filter Buttons Panel
+        categoriesPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        categoriesPanel.setOpaque(false);
+        categoriesPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        controlsPanel.add(searchBar);
-        controlsPanel.add(Box.createVerticalStrut(10));
-        controlsPanel.add(pillsScroll);
+        for (String cat : categories) {
+            JButton btn = createCategoryButton(cat);
+            categoryButtons.add(btn);
+            categoriesPanel.add(btn);
+        }
 
-        topBox.add(controlsPanel);
-        add(topBox, BorderLayout.NORTH);
+        topHeader.add(logoPanel);
+        topHeader.add(titleLabel);
+        topHeader.add(Box.createVerticalStrut(8));
+        topHeader.add(searchField);
+        topHeader.add(Box.createVerticalStrut(10));
+        topHeader.add(categoriesPanel);
 
-        collectionCardFeed = new JPanel(new GridLayout(0, 2, 12, 12));
-        collectionCardFeed.setOpaque(false);
+        add(topHeader, BorderLayout.NORTH);
 
-        JPanel gridWrapper = new JPanel(new BorderLayout());
-        gridWrapper.setOpaque(false);
-        gridWrapper.add(collectionCardFeed, BorderLayout.NORTH);
+        // --- CENTER GRID: 2-Column Recipe Grid ---
+        gridPanel = new JPanel(new GridLayout(0, 2, 12, 12));
+        gridPanel.setOpaque(false);
+        gridPanel.setBorder(new EmptyBorder(8, 12, 12, 12));
 
-        JScrollPane feedScroller = new JScrollPane(gridWrapper);
-        feedScroller.setBorder(new EmptyBorder(10, 14, 10, 14));
-        feedScroller.setOpaque(false);
-        feedScroller.getViewport().setOpaque(false);
-        feedScroller.getVerticalScrollBar().setUnitIncrement(12);
-        feedScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        feedScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        JPanel topWrapper = new JPanel(new BorderLayout());
+        topWrapper.setOpaque(false);
+        topWrapper.add(gridPanel, BorderLayout.NORTH);
 
-        add(feedScroller, BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(topWrapper);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(null);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        add(scrollPane, BorderLayout.CENTER);
+
+        updateCategoryButtonStyles();
         refreshGrid();
     }
 
-    public void setSearchQuery(String query) {
-        if (query != null && !query.trim().isEmpty()) {
-            this.currentSearchQuery = query.trim().toLowerCase();
-            if (searchBar != null) {
-                searchBar.setText(query.trim());
-                searchBar.setForeground(AppTheme.COLOR_TEXT_DARK);
+    private JButton createCategoryButton(String categoryName) {
+        JButton btn = new JButton(categoryName) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                boolean isSelected = categoryName.equalsIgnoreCase(selectedCategory);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (isSelected) {
+                    g2.setColor(new Color(212, 100, 48));
+                } else {
+                    g2.setColor(Color.WHITE);
+                }
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+
+                g2.setColor(isSelected ? new Color(212, 100, 48) : new Color(200, 190, 180));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+
+                g2.setFont(new Font("SansSerif", Font.BOLD, 11));
+                g2.setColor(isSelected ? Color.WHITE : new Color(60, 30, 15));
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(categoryName)) / 2;
+                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(categoryName, x, y);
+
+                g2.dispose();
             }
-        } else {
-            this.currentSearchQuery = "";
-            if (searchBar != null) {
-                searchBar.setText(SEARCH_PLACEHOLDER);
-                searchBar.setForeground(Color.GRAY);
-            }
+        };
+        btn.setPreferredSize(new Dimension(68, 28));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        btn.addActionListener(e -> {
+            selectedCategory = categoryName;
+            updateCategoryButtonStyles();
+            refreshGrid();
+        });
+
+        return btn;
+    }
+
+    private void updateCategoryButtonStyles() {
+        for (JButton b : categoryButtons) {
+            b.repaint();
         }
     }
 
     public void setShowFavoritesOnly(boolean showFavoritesOnly) {
         this.showFavoritesOnly = showFavoritesOnly;
-        this.showMostViewedOnly = false;
-        refreshGrid();
+        if (titleLabel != null) {
+            titleLabel.setText(showFavoritesOnly ? "Favorites" : "All Recipes");
+        }
+        repaint();
     }
 
-    public void setShowMostViewedOnly(boolean showMostViewedOnly) {
-        this.showMostViewedOnly = showMostViewedOnly;
-        this.showFavoritesOnly = false;
-        refreshGrid();
+    public void setSearchQuery(String query) {
+        this.searchQuery = query != null ? query.toLowerCase().trim() : "";
+        if (searchField != null) {
+            searchField.setText(query);
+        }
     }
 
     public void refreshGrid() {
-        collectionCardFeed.removeAll();
+        gridPanel.removeAll();
 
-        List<Recipe> filtered = recipes.stream()
-                .filter(r -> !showFavoritesOnly || r.isFavorite())
-                .filter(r -> currentCategoryFilter.equals("All") || r.getCategory().equalsIgnoreCase(currentCategoryFilter))
-                .filter(r -> currentSearchQuery.isEmpty() || r.getName().toLowerCase().contains(currentSearchQuery))
-                .sorted((a, b) -> Integer.compare(b.getViewCount(), a.getViewCount()))
-                .collect(Collectors.toList());
+        List<Recipe> filtered = new ArrayList<>();
+        for (Recipe r : recipes) {
+            boolean matchesFav = !showFavoritesOnly || r.isFavorite();
+            boolean matchesCategory = selectedCategory.equalsIgnoreCase("All") 
+                || r.getCategory().equalsIgnoreCase(selectedCategory);
+
+            String name = r.getName() != null ? r.getName().toLowerCase() : "";
+            String cat = r.getCategory() != null ? r.getCategory().toLowerCase() : "";
+            boolean matchesSearch = searchQuery.isEmpty() || name.contains(searchQuery) || cat.contains(searchQuery);
+
+            if (matchesFav && matchesCategory && matchesSearch) {
+                filtered.add(r);
+            }
+        }
 
         for (Recipe recipe : filtered) {
-            collectionCardFeed.add(new RecipeCard(recipe, cardActionListener));
+            RecipeCard card = new RecipeCard(recipe, cardListener);
+            card.setPreferredSize(new Dimension(170, 180));
+            gridPanel.add(card);
         }
 
-        if (filtered.size() % 2 != 0) {
-            JPanel dummy = new JPanel();
-            dummy.setOpaque(false);
-            collectionCardFeed.add(dummy);
+        gridPanel.revalidate();
+        gridPanel.repaint();
+
+        Container parent = getParent();
+        if (parent != null) {
+            parent.revalidate();
+            parent.repaint();
         }
-
-        collectionCardFeed.revalidate();
-        collectionCardFeed.repaint();
-    }
-
-    private JLabel createLogoLabel() {
-        JLabel logoLabel = new JLabel();
-        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        File logoFile = new File("assets/logohome.png");
-        ImageIcon rawLogo = null;
-        if (logoFile.exists()) {
-            rawLogo = new ImageIcon("assets/logohome.png");
-        } else {
-            java.net.URL logoUrl = getClass().getResource("/assets/logohome.png");
-            if (logoUrl != null) rawLogo = new ImageIcon(logoUrl);
-        }
-
-        if (rawLogo != null && rawLogo.getIconWidth() > 0) {
-            int targetW = 220; 
-            int targetH = (int) ((double) rawLogo.getIconHeight() / rawLogo.getIconWidth() * targetW);
-            Image scaledLogo = rawLogo.getImage().getScaledInstance(targetW, targetH, Image.SCALE_SMOOTH);
-            logoLabel.setIcon(new ImageIcon(scaledLogo));
-        } else {
-            logoLabel.setText("<html><center><font color='#D46430'><b>CULINARY KEEP</b></font><br><font size='5'><b>Your Recipes</b></font></center></html>");
-        }
-        return logoLabel;
-    }
-
-    private JScrollPane createPillsPanel() {
-        JPanel pillsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        pillsPanel.setOpaque(false);
-
-        String[] tags = {"All", "Breakfast", "Lunch", "Dinner", "Dessert", "Salads", "Soups & Stews"};
-        for (String tag : tags) {
-            JButton pill = new JButton(tag);
-            pill.setFont(AppTheme.FONT_BODY_SMALL);
-            pill.setFocusPainted(false);
-            pill.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            stylePillButton(pill, tag.equals(currentCategoryFilter));
-
-            pill.addActionListener(e -> {
-                showFavoritesOnly = false;
-                showMostViewedOnly = false;
-                currentCategoryFilter = tag;
-                for (Component c : pillsPanel.getComponents()) {
-                    if (c instanceof JButton) {
-                        JButton b = (JButton) c;
-                        stylePillButton(b, b.getText().equals(currentCategoryFilter));
-                    }
-                }
-                refreshGrid();
-            });
-            pillsPanel.add(pill);
-        }
-
-        JScrollPane pillsScroll = new JScrollPane(pillsPanel);
-        pillsScroll.setBorder(null);
-        pillsScroll.setOpaque(false);
-        pillsScroll.getViewport().setOpaque(false);
-
-        pillsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        pillsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        pillsScroll.setPreferredSize(new Dimension(380, 36));
-        pillsScroll.getHorizontalScrollBar().setUnitIncrement(16);
-
-        pillsScroll.getHorizontalScrollBar().setUI(new InvisibleScrollBarUI());
-        pillsScroll.getHorizontalScrollBar().setPreferredSize(new Dimension(0, 0));
-
-        pillsScroll.addMouseWheelListener(e -> {
-            JScrollBar horizontal = pillsScroll.getHorizontalScrollBar();
-            int amount = e.getWheelRotation() * horizontal.getUnitIncrement();
-            horizontal.setValue(horizontal.getValue() + amount);
-        });
-
-        MouseAdapter dragAdapter = new MouseAdapter() {
-            private Point origin;
-
-            @Override
-            public void mousePressed(MouseEvent e) {
-                origin = e.getPoint();
-            }
-
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                if (origin != null) {
-                    JViewport viewport = pillsScroll.getViewport();
-                    Point viewPosition = viewport.getViewPosition();
-                    int deltaX = origin.x - e.getX();
-                    int newX = viewPosition.x + deltaX;
-
-                    int maxX = pillsPanel.getWidth() - viewport.getWidth();
-                    if (maxX < 0) maxX = 0;
-
-                    if (newX < 0) newX = 0;
-                    if (newX > maxX) newX = maxX;
-
-                    viewport.setViewPosition(new Point(newX, viewPosition.y));
-                }
-            }
-        };
-
-        pillsPanel.addMouseListener(dragAdapter);
-        pillsPanel.addMouseMotionListener(dragAdapter);
-
-        return pillsScroll;
-    }
-
-    private void stylePillButton(JButton pill, boolean isActive) {
-        if (isActive) {
-            pill.setBackground(AppTheme.COLOR_PRIMARY);
-            pill.setForeground(Color.WHITE);
-        } else {
-            pill.setBackground(new Color(255, 255, 255, 220));
-            pill.setForeground(AppTheme.COLOR_TEXT_DARK);
-        }
-    }
-
-    private static class InvisibleScrollBarUI extends javax.swing.plaf.basic.BasicScrollBarUI {
-        @Override
-        protected void configureScrollBarColors() {
-            this.thumbColor = new Color(0, 0, 0, 0);
-            this.trackColor = new Color(0, 0, 0, 0);
-        }
-
-        @Override
-        protected JButton createDecreaseButton(int orientation) {
-            return createZeroButton();
-        }
-
-        @Override
-        protected JButton createIncreaseButton(int orientation) {
-            return createZeroButton();
-        }
-
-        private JButton createZeroButton() {
-            JButton btn = new JButton();
-            btn.setPreferredSize(new Dimension(0, 0));
-            btn.setMinimumSize(new Dimension(0, 0));
-            btn.setMaximumSize(new Dimension(0, 0));
-            return btn;
-        }
-
-        @Override
-        protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {}
-
-        @Override
-        protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {}
     }
 }

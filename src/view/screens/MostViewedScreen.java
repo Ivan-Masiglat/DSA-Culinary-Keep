@@ -18,8 +18,7 @@ public class MostViewedScreen extends JPanel {
     private final List<Recipe> recipes;
     private final RecipeCard.CardActionListener cardListener;
     private final BackListener backListener;
-
-    private JPanel gridPanel;
+    private final JPanel gridPanel;
 
     public MostViewedScreen(List<Recipe> recipes, RecipeCard.CardActionListener cardListener, BackListener backListener) {
         this.recipes = recipes;
@@ -28,154 +27,74 @@ public class MostViewedScreen extends JPanel {
 
         setLayout(new BorderLayout());
         setOpaque(false);
-        setBorder(new EmptyBorder(12, 16, 12, 16));
+        setBorder(new EmptyBorder(8, 8, 8, 8));
 
-        // Top Header Panel
-        JPanel topContainer = new JPanel(new BorderLayout());
-        topContainer.setOpaque(false);
+        // Top Header Bar with Back Button and Title
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
+        headerPanel.setOpaque(false);
 
-        // High-Contrast Back Button with Drop Shadow
         JButton backBtn = new JButton("← Back") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                // Text drop shadow
-                g2.setColor(new Color(0, 0, 0, 160));
-                g2.setFont(getFont());
-                g2.drawString(getText(), 2, getHeight() - 8);
-                // Main white text
-                g2.setColor(Color.WHITE);
-                g2.drawString(getText(), 1, getHeight() - 9);
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(240, 230, 215));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(212, 100, 48));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
                 g2.dispose();
+                super.paintComponent(g);
             }
         };
-        backBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+        backBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        backBtn.setForeground(new Color(60, 30, 15));
         backBtn.setContentAreaFilled(false);
         backBtn.setBorderPainted(false);
         backBtn.setFocusPainted(false);
         backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        backBtn.setPreferredSize(new Dimension(70, 30));
+        backBtn.setPreferredSize(new Dimension(80, 28));
         backBtn.addActionListener(e -> {
-            if (backListener != null) backListener.onBackClicked();
+            if (this.backListener != null) {
+                this.backListener.onBackClicked();
+            }
         });
 
-        // Center Header Title Box
-        JPanel titleBox = new JPanel();
-        titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
-        titleBox.setOpaque(false);
+        JLabel titleLabel = new JLabel("Most Viewed");
+        titleLabel.setFont(new Font("Serif", Font.BOLD, 18));
+        titleLabel.setForeground(new Color(60, 30, 15));
 
-        // Main Title Label ("🔥 Most Viewed")
-        JLabel titleLabel = new JLabel("🔥 Most Viewed", SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                // Subtle dark outline / shadow for crisp readability
-                g2.setColor(new Color(60, 30, 15, 180));
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(getText())) / 2;
-                int y = fm.getAscent();
-                g2.drawString(getText(), x + 1, y + 1);
-                g2.setColor(new Color(60, 30, 15));
-                g2.drawString(getText(), x, y);
-                g2.dispose();
-            }
-        };
-        titleLabel.setFont(new Font("Serif", Font.BOLD, 22));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        headerPanel.add(backBtn);
+        headerPanel.add(titleLabel);
 
-        // Subtitle Label with Sharp Shadow
-        JLabel subtitleLabel = new JLabel("Your most frequently visited recipes", SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(getText())) / 2;
-                int y = fm.getAscent();
-                // Shadow
-                g2.setColor(new Color(0, 0, 0, 180));
-                g2.setFont(getFont());
-                g2.drawString(getText(), x + 1, y + 1);
-                // Crisp White Text
-                g2.setColor(Color.WHITE);
-                g2.drawString(getText(), x, y);
-                g2.dispose();
-            }
-        };
-        subtitleLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        add(headerPanel, BorderLayout.NORTH);
 
-        titleBox.add(titleLabel);
-        titleBox.add(Box.createVerticalStrut(2));
-        titleBox.add(subtitleLabel);
-
-        topContainer.add(backBtn, BorderLayout.WEST);
-        topContainer.add(titleBox, BorderLayout.CENTER);
-
-        add(topContainer, BorderLayout.NORTH);
-
-        // Scrollable Grid Area
-        gridPanel = new JPanel();
-        gridPanel.setLayout(new BoxLayout(gridPanel, BoxLayout.Y_AXIS));
+        // Recipe Grid Container
+        gridPanel = new JPanel(new GridLayout(0, 2, 10, 10));
         gridPanel.setOpaque(false);
+        gridPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
+
+        refreshMostViewed();
 
         JScrollPane scrollPane = new JScrollPane(gridPanel);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setBorder(null);
-
-        // Hide visible scrollbars while keeping mouse-wheel scrolling active
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
-
-        refreshMostViewed();
     }
 
     public void refreshMostViewed() {
         gridPanel.removeAll();
 
         List<Recipe> sorted = new ArrayList<>(recipes);
-        sorted.sort((r1, r2) -> Integer.compare(r2.getViewCount(), r1.getViewCount()));
 
-        int rank = 1;
+        // Sort by views descending
+        sorted.sort((r1, r2) -> Integer.compare(r2.getViews(), r1.getViews()));
+
         for (Recipe recipe : sorted) {
-            JPanel cardWrapper = new JPanel(new BorderLayout(0, 4));
-            cardWrapper.setOpaque(false);
-            cardWrapper.setBorder(new EmptyBorder(6, 0, 10, 0));
-
-            JLabel rankLabel = new JLabel("#" + rank, SwingConstants.CENTER);
-            rankLabel.setOpaque(true);
-            rankLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-
-            if (rank == 1) {
-                rankLabel.setBackground(new Color(255, 204, 0));
-                rankLabel.setForeground(Color.BLACK);
-            } else if (rank == 2) {
-                rankLabel.setBackground(new Color(200, 200, 200));
-                rankLabel.setForeground(Color.BLACK);
-            } else if (rank == 3) {
-                rankLabel.setBackground(new Color(205, 127, 50));
-                rankLabel.setForeground(Color.WHITE);
-            } else {
-                rankLabel.setBackground(new Color(230, 220, 200));
-                rankLabel.setForeground(new Color(80, 40, 20));
-            }
-
-            rankLabel.setPreferredSize(new Dimension(160, 20));
-
-            RecipeCard card = new RecipeCard(recipe, cardListener);
-
-            cardWrapper.add(rankLabel, BorderLayout.NORTH);
-            cardWrapper.add(card, BorderLayout.CENTER);
-
-            gridPanel.add(cardWrapper);
-            rank++;
+            gridPanel.add(new RecipeCard(recipe, cardListener));
         }
 
         gridPanel.revalidate();
